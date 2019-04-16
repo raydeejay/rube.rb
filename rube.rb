@@ -5,11 +5,33 @@
 # https://esolangs.org/wiki/RubE_On_Conveyor_Belts
 
 # raydeejay (2019/04/16 at 14:33)
-#   ruby 
+#   ruby
 #   I'm implementing RubE (on Conveyor Belts) on Ruby (on Rails)
 #   (only I'm not actually using Rails, but I'm upping the pun factor here)
 
 require 'singleton'
+
+# Ruby magic
+##############################
+module AttrBoolean
+  def self.included(base)
+    base.extend ClassMethods
+  end
+
+  module ClassMethods
+    def attr_boolean(*names)
+      names.each do |name|
+        define_method(:"#{name}=") do |value|
+          instance_variable_set(:"@#{name}", value)
+        end
+
+        define_method(:"#{name}?") do
+          !!instance_variable_get(:"@#{name}")
+        end
+      end
+    end
+  end
+end
 
 # Utility code
 ##############################
@@ -104,12 +126,12 @@ def pushBlocksLeft(x, y)
     $futureCodeGrid[y][xx] = $codeGrid[y][xx+1]
     $futureCodeGrid[y][xx+1] = Empty.instance
   end
-  
+
   # if we pushed into a furnace, erase the crate and restore the furnace
   if $codeGrid[y][pos_left_edge] == Furnace.instance
     $futureCodeGrid[y][pos_left_edge] = Furnace.instance
   end
-    
+
   # if we pushed into a ramp
   if $codeGrid[y][pos_left_edge] == RampLeft.instance
     $futureCodeGrid[y-1][pos_left_edge-1] = $futureCodeGrid[y][pos_left_edge]
@@ -141,12 +163,12 @@ def pushBlocksRight(x, y)
     $futureCodeGrid[y][xx] = $codeGrid[y][xx-1]
     $futureCodeGrid[y][xx-1] = Empty.instance
   end
-  
+
   # if we pushed into a furnace, erase the crate and restore the furnace
   if $codeGrid[y][pos_right_edge] == Furnace.instance
     $futureCodeGrid[y][pos_right_edge] = Furnace.instance
   end
-    
+
   # if we pushed into a ramp
   if $codeGrid[y][pos_right_edge] == RampRight.instance
     $futureCodeGrid[y-1][pos_right_edge+1] = $futureCodeGrid[y][pos_right_edge]
@@ -159,27 +181,35 @@ end
 # Classes
 ##############################
 class Part
-  def crate?
-    false
-  end
+  include AttrBoolean
 
-  def transparent?
-    false
+  attr_boolean :crate, :transparent
+  attr_reader :char, :category
+
+  def initialize
+    # override to redefine attributes
+    @crate = false
+    @transparent = false
+    @char = ' '
+    @category = 1
   end
 
   def action(x, y)
-    # no default action
+    # override to define an action
   end
+end
+
+class SingletonPart < Part
+  include Singleton
 end
 
 class TurningPoint < Part
   def char
-    " "
+    "T"
   end
 end
 
-class Scanner < Part
-  include Singleton
+class Scanner < SingletonPart
   def char
     "*"
   end
@@ -187,14 +217,13 @@ class Scanner < Part
   def category
     0
   end
-  
+
   def action(x, y)
     $output << "Scanner action\n"
   end
 end
 
-class Input < Part
-  include Singleton
+class Input < SingletonPart
   def char
     "?"
   end
@@ -204,12 +233,11 @@ class Input < Part
   end
 
   def action(x, y)
-    $output << "Input action\n" 
+    $output << "Input action\n"
  end
 end
-  
-class Furnace < Part
-  include Singleton
+
+class Furnace < SingletonPart
   def transparent?
     true
   end
@@ -226,81 +254,168 @@ class Furnace < Part
   end
 end
 
-class ConveyorLeft < Part
-  include Singleton
-  def char
-    "<"
-  end
-
-  def category
-    5
+class BulldozerLeft < SingletonPart
+  def initialize
+    super
+    @category = 4
+    @char = ']'
   end
 
   def action(x, y)
-    if y > 0 and x > 0 and $codeGrid[y-1][x].crate? then
+    #fall
+    if y < 25-1 and $codeGrid[y+1][x].crate? and not $dirty.include?([x, y+1])
+      $dirty << [x, y+1]
+      $futureCodeGrid[y+1][x] = self
+      $futureCodeGrid[y][x] = Empty.instance
+    # suck itself upwards
+    elsif y > 1 and
+         $codeGrid[y-1][x] == BulldozerPipe.instance and
+         not $dirty.include?([x, y-1]) and
+         $codeGrid[y-2][x] == Empty.instance and
+         not $dirty.include?([x, y-2])
+    then
+      $dirty << [x, y-2]
+      $futureCodeGrid[y-2][x] = self
+      $futureCodeGrid[y][x] = Empty.instance
+    # push and move?
+    elsif x > 0
+      if $codeGrid[y][x-1].crate? and not $dirty.include?([x-1, y])
+        return if x <=1 or not pushBlocksLeft(x-1, y)
+      elsif y < 0 and $codeGrid[y][x-1] == RampLeft.instance and not $dirty.include?([x-1, y])
+        return if $codeGrid[y-1][x-1].crate? and not pushBlocksLeft(x-1, y-1)
+        $dirty << [x-1, y-1]
+        $futureCodeGrid[y-1][x-1] = self
+        $futureCodeGrid[y][x] = Empty.instance
+      else
+        return if not ($codeGrid[y][x-1] == Empty.instance and not $dirty.include?([x-1, y]))
+      end
+      # move if a push happened
+      $dirty << [x-1, y]
+      $futureCodeGrid[y][x-1] = self
+      $futureCodeGrid[y][x] = Empty.instance
+
+      #turning behaviour goes here??
+      # if
+      # end
+    end
+  end
+end
+
+class ConveyorLeft < SingletonPart
+  def initialize
+    super
+    @category = 4
+    @char = '<'
+  end
+
+  def action(x, y)
+    if y > 0 and x > 0 and $codeGrid[y-1][x].crate? and not $dirty.include?([x, y-1])
       pushBlocksLeft(x, y-1)
     end
   end
 end
 
-class ConveyorRight < Part
-  include Singleton
-  def char
-    ">"
-  end
-
-  def category
-    5
+class ConveyorRight < SingletonPart
+  def initialize
+    super
+    @category = 4
+    @char = '>'
   end
 
   def action(x, y)
-    if y > 0 and x > 0 and $codeGrid[y-1][x].crate? then
+    if y > 0 and x > 0 and $codeGrid[y-1][x].crate? and not $dirty.include?([x, y-1])
       pushBlocksRight(x, y-1)
     end
   end
 end
 
-class RampLeft < Part
-  include Singleton
-  def transparent?
-    true
-  end
-
-  def category
-    3
-  end
-
-  def char
-    '\\'
+class RampLeft < SingletonPart
+  def initialize
+    super
+    @category = 3
+    @char = '\\'
+    @transparent = true
   end
 end
 
-class RampRight < Part
-  include Singleton
-  def transparent?
-    true
+class RampRight < SingletonPart
+  def initialize
+    super
+    @category = 3
+    @char = '/'
+    @transparent = true
+  end
+end
+
+class CopierDown < SingletonPart
+  def initialize
+    super
+    @category = 3
+    @char = '!'
   end
 
-  def category
-    3
+  def action(x, y)
+    if y > 0 and
+      y < 25-1 and
+      $codeGrid[y-1][x].crate? and
+      $codeGrid[y+1][x] == Empty.instance and
+      not $dirty.include?([x, y+1])
+    then
+      $dirty << [x, y+1]
+      # not quite right... we want a random number from R
+      # maybe introduce a method to the crates to copy them?
+      $futureCodeGrid[y+1][x] = $codeGrid[y-1][x]
+    end
+  end
+end
+
+class BulldozerPipe < SingletonPart
+  def initialize
+    super
+    @category = 2
+    @char = '^'
+  end
+end
+
+class PipeDown < SingletonPart
+  def initialize
+    super
+    @category = 2
+    @char = 'V'
   end
 
-  def char
-    '/'
+  def action(x, y)
+    if y > 0 and
+      y < 25-1 and
+      $codeGrid[y-1][x].crate? and
+      (not $dirty.include?([x, y-1])) and
+      ($codeGrid[y+1][x] == Empty.instance or $codeGrid[y+1][x] == self) and
+      (not $dirty.include?([x, y+1]))
+    then
+      out_y = y
+      out_y +=1 while (out_y < 25-1 and $codeGrid[out_y][x] == self)
+
+      # can't output unless there's empty non-dirty space
+      return if $codeGrid[out_y][x] != Empty.instance or $dirty.include?([x, out_y])
+
+      $dirty << [x, out_y]
+      $futureCodeGrid[out_y][x] = $codeGrid[y-1][x]
+      $futureCodeGrid[y-1][x] = Empty.instance
+    end
   end
 end
 
 class Crate < Part
   attr_accessor :value
-  
+
   def crate?
     true
   end
-  
+
   def initialize
     @value = 0
   end
-  
+
   def char
     case @value
     when (0..9)
@@ -314,9 +429,8 @@ class Crate < Part
     3
   end
 end
-  
-class Empty < Part
-  include Singleton
+
+class Empty < SingletonPart
   def char
     " "
   end
@@ -327,8 +441,7 @@ class Empty < Part
 end
 $empty = Empty.instance
 
-class Wall < Part
-  include Singleton
+class Wall < SingletonPart
   def char
     "#"
   end
@@ -358,10 +471,18 @@ def loadChar(char, x, y)
     entity = ConveyorLeft.instance
   when '>'
     entity = ConveyorRight.instance
+  when ']'
+    entity = BulldozerLeft.instance
   when '\\'
     entity = RampLeft.instance
   when '/'
     entity = RampRight.instance
+  when '!'
+    entity = CopierDown.instance
+  when '^'
+    entity = BulldozerPipe.instance
+  when 'V'
+    entity = PipeDown.instance
   when 'b'
     data = 0
   when ('0'..'9')
@@ -408,8 +529,8 @@ $controlProgram = '+[dsti[o[-]]+]'
 
 def run_one_step(code)
   # copy the grid into the future one
-  $futureDataGrid = $dataGrid.map do |each| each.dup end
-  $futureCodeGrid = $codeGrid.map do |each| each.dup end
+  # $futureDataGrid = $dataGrid.map do |each| each.dup end
+  # $futureCodeGrid = $codeGrid.map do |each| each.dup end
 
   # (re)create the parts processing order list(s)
   processing_list = Array.new(6) { Array.new }
@@ -420,17 +541,24 @@ def run_one_step(code)
       end
     end
   end
-  
+
   # activate each part in the proper order
   processing_list.each do | category |
+    # copy the grid into the future one
+    $futureDataGrid = $dataGrid.map do |each| each.dup end
+    $futureCodeGrid = $codeGrid.map do |each| each.dup end
+
     category.each do | entry |
       entry[0].action(entry[1], entry[2])
     end
+
+    $dataGrid = $futureDataGrid
+    $codeGrid = $futureCodeGrid
   end
 
   # make the future the present
-  $dataGrid = $futureDataGrid
-  $codeGrid = $futureCodeGrid
+  # $dataGrid = $futureDataGrid
+  # $codeGrid = $futureCodeGrid
 end
 
 def run_one_control_cycle(code)
