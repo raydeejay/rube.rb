@@ -155,6 +155,9 @@ def pushBlocksRight(x, y)
   # can only push into an empty ramp
   return false if $codeGrid[y][pos_right_edge] == RampRight.instance and not pushBlocksRight(pos_right_edge+1, y-1)
 
+  was_furnace = $codeGrid[y][pos_right_edge] == Furnace.instance
+  was_ramp = $codeGrid[y][pos_right_edge] == RampRight.instance
+
   # do some pushing, marking blockd as dirty
   (x+1..pos_right_edge).reverse_each do | xx |
     $dirty << [xx, y]
@@ -163,12 +166,13 @@ def pushBlocksRight(x, y)
   end
 
   # if we pushed into a furnace, erase the crate and restore the furnace
-  if $codeGrid[y][pos_right_edge] == Furnace.instance
+  if was_furnace
+    $codeGrid[y][pos_right_edge] == Furnace.instance
     $futureCodeGrid[y][pos_right_edge] = Furnace.instance
   end
 
   # if we pushed into a ramp
-  if $codeGrid[y][pos_right_edge] == RampRight.instance
+  if was_ramp
     $futureCodeGrid[y-1][pos_right_edge+1] = $futureCodeGrid[y][pos_right_edge]
     $futureCodeGrid[y][pos_right_edge] = RampRight.instance
   end
