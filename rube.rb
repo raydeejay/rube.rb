@@ -722,10 +722,10 @@ def loadChar(char, x, y)
   if part = Part.parts.detect { |each| each.instance.char == char }
     entity = part.instance
   else
-    # it's a dynamic part
+    # it's a dynamic part holding data, can't be a singleton
     case char
     when 'b'
-      data = 0
+      entity = Crate.new(0)
     when ('0'..'9')
       entity = Crate.new(char.to_i)
     else
