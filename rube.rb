@@ -100,6 +100,16 @@ $controlProgram = '+[dsti[o[-]]+]'
 
 # Independent-ish code
 ##############################
+def canFall?(x, y)
+  y < 25-1 and $codeGrid[y+1][x] == Empty.instance and not $dirty.include?([x, y+1])
+end
+
+def fall(x, y)
+  $dirty << [x, y+1]
+  $codeGrid[y+1][x] = $codeGrid[y][x]
+  $codeGrid[y][x] = Empty.instance
+end
+
 def pushBlocksLeft(x, y)
   # can't push if outside the grid
   return false if y < 0 or y >= 25 or x < 0 or x >= 80
@@ -187,14 +197,21 @@ end
 class Part
   include AttrBoolean
 
-  attr_boolean :crate, :transparent
+  attr_boolean :crate, :transparent, :abstract
   attr_reader :char, :category
+
+  # every concrete part should add itself to this array
+  @@parts = []
+  def self.parts
+    @@parts
+  end
 
   def initialize
     # override to redefine attributes
+    @abstract = false
     @crate = false
     @transparent = false
-    @char = ' '
+    @char = nil
     @category = 1
   end
 
@@ -207,13 +224,16 @@ class SingletonPart < Part
   include Singleton
 end
 
-class TurningPoint < Part
+
+class TurningPoint < SingletonPart
+  Part.parts << self
   def char
     "T"
   end
 end
 
 class Scanner < SingletonPart
+  Part.parts << self
   def char
     "*"
   end
@@ -228,6 +248,7 @@ class Scanner < SingletonPart
 end
 
 class Input < SingletonPart
+  Part.parts << self
   def char
     "?"
   end
@@ -242,6 +263,7 @@ class Input < SingletonPart
 end
 
 class Furnace < SingletonPart
+  Part.parts << self
   def transparent?
     true
   end
@@ -294,6 +316,7 @@ class AbstractArithmeticPart < SingletonPart
 end
 
 class Adder < AbstractArithmeticPart
+  Part.parts << self
   def initialize
     super
     @char = "+"
@@ -305,6 +328,7 @@ class Adder < AbstractArithmeticPart
 end
 
 class Subtracter < AbstractArithmeticPart
+  Part.parts << self
   def initialize
     super
     @char = "-"
@@ -316,6 +340,7 @@ class Subtracter < AbstractArithmeticPart
 end
 
 class BulldozerLeft < SingletonPart
+  Part.parts << self
   def initialize
     super
     @category = 4
@@ -323,12 +348,9 @@ class BulldozerLeft < SingletonPart
   end
 
   def action(x, y)
-    #fall
-    if y < 25-1 and $codeGrid[y+1][x] == Empty.instance and not $dirty.include?([x, y+1])
-      $dirty << [x, y+1]
-      $codeGrid[y+1][x] = $codeGrid[y][x]
-      $codeGrid[y][x] = Empty.instance
-    # suck itself upwards
+    if canFall?(x, y)
+      fall(x, y)
+  # suck itself upwards
     elsif y > 1 and
          $codeGrid[y-1][x] == BulldozerPipe.instance and
          not $dirty.include?([x, y-1]) and
@@ -363,6 +385,7 @@ class BulldozerLeft < SingletonPart
 end
 
 class ConveyorLeft < SingletonPart
+  Part.parts << self
   def initialize
     super
     @category = 4
@@ -377,6 +400,7 @@ class ConveyorLeft < SingletonPart
 end
 
 class ConveyorRight < SingletonPart
+  Part.parts << self
   def initialize
     super
     @category = 4
@@ -391,6 +415,7 @@ class ConveyorRight < SingletonPart
 end
 
 class RampLeft < SingletonPart
+  Part.parts << self
   def initialize
     super
     @category = 3
@@ -400,6 +425,7 @@ class RampLeft < SingletonPart
 end
 
 class RampRight < SingletonPart
+  Part.parts << self
   def initialize
     super
     @category = 3
@@ -409,6 +435,7 @@ class RampRight < SingletonPart
 end
 
 class CopierDown < SingletonPart
+  Part.parts << self
   def initialize
     super
     @category = 3
@@ -429,6 +456,7 @@ class CopierDown < SingletonPart
 end
 
 class BulldozerPipe < SingletonPart
+  Part.parts << self
   def initialize
     super
     @category = 2
@@ -437,6 +465,7 @@ class BulldozerPipe < SingletonPart
 end
 
 class PipeDown < SingletonPart
+  Part.parts << self
   def initialize
     super
     @category = 2
@@ -464,35 +493,8 @@ class PipeDown < SingletonPart
   end
 end
 
-class Crate < Part
-  attr_accessor :value
-
-  def initialize(value)
-    @value = value
-    @crate = true
-    @category = 3
-  end
-
-  def char
-    case @value
-    when (0..9)
-      @value.to_s
-    else
-      "b"
-    end
-  end
-
-  def action(x, y)
-    # fall
-    if y < 25-1 and $codeGrid[y+1][x] == Empty.instance and not $dirty.include?([x, y+1])
-      $dirty << [x, y+1]
-      $codeGrid[y+1][x] = $codeGrid[y][x]
-      $codeGrid[y][x] = Empty.instance
-    end
-  end
-end
-
 class RandomCrate < SingletonPart
+  Part.parts << self
   attr_accessor :value
 
   def initialize
@@ -512,22 +514,42 @@ class RandomCrate < SingletonPart
       $codeGrid[y][x] = Crate.new(rand(0..9))
     end
 
-    # fall
-    if y < 25-1 and $codeGrid[y+1][x] == Empty.instance and not $dirty.include?([x, y+1])
-      $dirty << [x, y+1]
-      $codeGrid[y+1][x] = $codeGrid[y][x]
-      $codeGrid[y][x] = Empty.instance
-    end
+    fall(x, y) if canFall?(x, y)
   end
 end
 
 class Empty < SingletonPart
+  Part.parts << self
   def char
     " "
   end
 
   def transparent?
     true
+  end
+end
+
+# these classes don't have a static character correspondence...
+class Crate < Part
+  attr_accessor :value
+
+  def initialize(value)
+    @value = value
+    @crate = true
+    @category = 3
+  end
+
+  def char
+    case @value
+    when (0..9)
+      @value.to_s
+    else
+      "b"
+    end
+  end
+
+  def action(x, y)
+    fall(x, y) if canFall?(x, y)
   end
 end
 
@@ -546,51 +568,22 @@ $dirty = []
 # lines are padded or cut as necessary
 # blank lines are added at the end if necessary
 
-# reverse the lines, to read the parts and add them to the arrays in evaluation order
-# use the loaded lines otherwise
-
-
 def loadChar(char, x, y)
-  entity = Empty.instance
-  data = 0
-
-  case char
-  when 'F'
-    entity = Furnace.instance
-  when '*'
-    entity = Scanner.instance
-  when '<'
-    entity = ConveyorLeft.instance
-  when '>'
-    entity = ConveyorRight.instance
-  when ']'
-    entity = BulldozerLeft.instance
-  when '\\'
-    entity = RampLeft.instance
-  when '/'
-    entity = RampRight.instance
-  when '!'
-    entity = CopierDown.instance
-  when '^'
-    entity = BulldozerPipe.instance
-  when 'V'
-    entity = PipeDown.instance
-  when 'r'
-    entity = RandomCrate.instance
-  when '+'
-    entity = Adder.instance
-  when '-'
-    entity = Subtracter.instance
-  when 'b'
-    data = 0
-  when ('0'..'9')
-    entity = Crate.new(char.to_i)
-  when ' '
-    entity = Empty.instance
+  # search for a singleton part
+  if part = Part.parts.detect { |each| each.instance.char == char }
+    entity = part.instance
   else
-    entity = Wall.new(char)
+    # it's a dynamic part
+    case char
+    when 'b'
+      data = 0
+    when ('0'..'9')
+      entity = Crate.new(char.to_i)
+    else
+      # or simply a wall
+      entity = Wall.new(char)
+    end
   end
-
   $codeGrid[y][x] = entity
 end
 
