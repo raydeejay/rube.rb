@@ -381,6 +381,51 @@ class BulldozerLeft < SingletonPart
   end
 end
 
+class BulldozerRight < SingletonPart
+  Part.parts << self
+  def initialize
+    super
+    @category = 4
+    @char = '['
+  end
+
+  def action(x, y)
+    if canFall?(x, y)
+      fall(x, y)
+  # suck itself upwards
+    elsif y > 1 and
+         $codeGrid[y-1][x] == BulldozerPipe.instance and
+         not dirty?([x, y-1]) and
+         $codeGrid[y-2][x] == Empty.instance and
+         not dirty?([x, y-2])
+    then
+      $dirty << [x, y-2]
+      $codeGrid[y-2][x] = self
+      $codeGrid[y][x] = Empty.instance
+    # push and move?
+    elsif x > 0
+      if $codeGrid[y][x+1].crate? and not dirty?([x+1, y])
+        return if x >=80-2 or not pushBlocksRight(x+1, y)
+      elsif y < 0 and $codeGrid[y][x+1] == RampRight.instance and not dirty?([x+1, y])
+        return if $codeGrid[y-1][x+1].crate? and not pushBlocksRight(x+1, y-1)
+        $dirty << [x+1, y-1]
+        $codeGrid[y-1][x+1] = self
+        $codeGrid[y][x] = Empty.instance
+      else
+        return if not ($codeGrid[y][x+1] == Empty.instance and not dirty?([x+1, y]))
+      end
+      # move if a push happened
+      $dirty << [x+1, y]
+      $codeGrid[y][x+1] = self
+      $codeGrid[y][x] = Empty.instance
+
+      #turning behaviour goes here??
+      # if
+      # end
+    end
+  end
+end
+
 class ConveyorLeft < SingletonPart
   Part.parts << self
   def initialize
