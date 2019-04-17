@@ -258,6 +258,38 @@ class Furnace < SingletonPart
   end
 end
 
+class Adder < SingletonPart
+  def initialize
+    super
+    @char = "F"
+    @category = 1
+  end
+
+  def action(x, y)
+    return if x==0 or x == 80-1 or y == 25-1
+
+    # ignore non-crates and dirty numerical crates
+    return if not $codeGrid[y+1][x-1].crate? or $dirty.include?([x-1, y+1])
+    return if not $codeGrid[y+1][x].crate? or $dirty.include?([x-1, y+1])
+
+    # ignore random crates
+    return if $codeGrid[y+1][x-1] == RandomCrate.instance
+    return if $codeGrid[y+1][x] == RandomCrate.instance
+
+    # needs space for the output
+    return if $codeGrid[y+1][x+1] != Empty.instance or $dirty.include?([x+1, y+1])
+
+    # calculate result
+    result = $codeGrid[y+1][x-1].value + $codeGrid[y+1][x].value
+
+    # create result crate and destroy inputs
+    $dirty << [x+1, y+1]
+    $codeGrid[y+1][x+1] = Crate.new(result)
+    $codeGrid[y+1][x-1] = Empty.instance
+    $codeGrid[y+1][x] = Empty.instance
+  end
+end
+
 class BulldozerLeft < SingletonPart
   def initialize
     super
@@ -520,6 +552,8 @@ def loadChar(char, x, y)
     entity = PipeDown.instance
   when 'r'
     entity = RandomCrate.instance
+  when '+'
+    entity = Adder.instance
   when 'b'
     data = 0
   when ('0'..'9')
