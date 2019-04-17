@@ -35,6 +35,10 @@ end
 
 # Utility code
 ##############################
+def dirty?(point)
+  $dirty.include?(point)
+end
+
 def moveto(x, y)
   print "\x1B[#{y+1};#{x+1}H"
 end
@@ -101,7 +105,7 @@ $controlProgram = '+[dsti[o[-]]+]'
 # Independent-ish code
 ##############################
 def canFall?(x, y)
-  y < 25-1 and $codeGrid[y+1][x] == Empty.instance and not $dirty.include?([x, y+1])
+  y < 25-1 and $codeGrid[y+1][x] == Empty.instance and not dirty?([x, y+1])
 end
 
 def fall(x, y)
@@ -121,7 +125,7 @@ def pushBlocksLeft(x, y)
   return false if pos_left_edge == 0
 
   # can only push into transparent parts (empty, furnace, ramp)
-  return false if (not $codeGrid[y][pos_left_edge].transparent? and not $dirty.include?([x, y]))
+  return false if (not $codeGrid[y][pos_left_edge].transparent? and not dirty?([x, y]))
 
   # can only push into an empty ramp
   return false if $codeGrid[y][pos_left_edge] == RampLeft.instance and not pushBlocksLeft(pos_left_edge-1, y-1)
@@ -161,7 +165,7 @@ def pushBlocksRight(x, y)
   return false if pos_right_edge == 80-1
 
   # can only push into *non-dirty* transparent parts (empty, furnace, ramp)
-  return false if not ($codeGrid[y][pos_right_edge].transparent? and not $dirty.include?([x, y]))
+  return false if not ($codeGrid[y][pos_right_edge].transparent? and not dirty?([x, y]))
 
   # can only push into an empty ramp
   return false if $codeGrid[y][pos_right_edge] == RampRight.instance and not pushBlocksRight(pos_right_edge+1, y-1)
@@ -294,15 +298,15 @@ class AbstractArithmeticPart < SingletonPart
     return if x==0 or x == 80-1 or y == 25-1
 
     # ignore non-crates and dirty numerical crates
-    return if not $codeGrid[y+1][x-1].crate? or $dirty.include?([x-1, y+1])
-    return if not $codeGrid[y+1][x].crate? or $dirty.include?([x-1, y+1])
+    return if not $codeGrid[y+1][x-1].crate? or dirty?([x-1, y+1])
+    return if not $codeGrid[y+1][x].crate? or dirty?([x-1, y+1])
 
     # ignore random crates
     return if $codeGrid[y+1][x-1] == RandomCrate.instance
     return if $codeGrid[y+1][x] == RandomCrate.instance
 
     # needs space for the output
-    return if $codeGrid[y+1][x+1] != Empty.instance or $dirty.include?([x+1, y+1])
+    return if $codeGrid[y+1][x+1] != Empty.instance or dirty?([x+1, y+1])
 
     # calculate result
     result = self.calculateResult(x, y)
@@ -353,24 +357,24 @@ class BulldozerLeft < SingletonPart
   # suck itself upwards
     elsif y > 1 and
          $codeGrid[y-1][x] == BulldozerPipe.instance and
-         not $dirty.include?([x, y-1]) and
+         not dirty?([x, y-1]) and
          $codeGrid[y-2][x] == Empty.instance and
-         not $dirty.include?([x, y-2])
+         not dirty?([x, y-2])
     then
       $dirty << [x, y-2]
       $codeGrid[y-2][x] = self
       $codeGrid[y][x] = Empty.instance
     # push and move?
     elsif x > 0
-      if $codeGrid[y][x-1].crate? and not $dirty.include?([x-1, y])
+      if $codeGrid[y][x-1].crate? and not dirty?([x-1, y])
         return if x <=1 or not pushBlocksLeft(x-1, y)
-      elsif y < 0 and $codeGrid[y][x-1] == RampLeft.instance and not $dirty.include?([x-1, y])
+      elsif y < 0 and $codeGrid[y][x-1] == RampLeft.instance and not dirty?([x-1, y])
         return if $codeGrid[y-1][x-1].crate? and not pushBlocksLeft(x-1, y-1)
         $dirty << [x-1, y-1]
         $codeGrid[y-1][x-1] = self
         $codeGrid[y][x] = Empty.instance
       else
-        return if not ($codeGrid[y][x-1] == Empty.instance and not $dirty.include?([x-1, y]))
+        return if not ($codeGrid[y][x-1] == Empty.instance and not dirty?([x-1, y]))
       end
       # move if a push happened
       $dirty << [x-1, y]
@@ -393,7 +397,7 @@ class ConveyorLeft < SingletonPart
   end
 
   def action(x, y)
-    if y > 0 and x > 0 and $codeGrid[y-1][x].crate? and not $dirty.include?([x, y-1])
+    if y > 0 and x > 0 and $codeGrid[y-1][x].crate? and not dirty?([x, y-1])
       pushBlocksLeft(x, y-1)
     end
   end
@@ -408,7 +412,7 @@ class ConveyorRight < SingletonPart
   end
 
   def action(x, y)
-    if y > 0 and x > 0 and $codeGrid[y-1][x].crate? and not $dirty.include?([x, y-1])
+    if y > 0 and x > 0 and $codeGrid[y-1][x].crate? and not dirty?([x, y-1])
       pushBlocksRight(x, y-1)
     end
   end
@@ -447,7 +451,7 @@ class CopierDown < SingletonPart
       y < 25-1 and
       $codeGrid[y-1][x].crate? and
       $codeGrid[y+1][x] == Empty.instance and
-      not $dirty.include?([x, y+1])
+      not dirty?([x, y+1])
     then
       $dirty << [x, y+1]
       $codeGrid[y+1][x] = $codeGrid[y-1][x]
@@ -476,15 +480,15 @@ class PipeDown < SingletonPart
     if y > 0 and
       y < 25-1 and
       $codeGrid[y-1][x].crate? and
-      (not $dirty.include?([x, y-1])) and
+      (not dirty?([x, y-1])) and
       ($codeGrid[y+1][x] == Empty.instance or $codeGrid[y+1][x] == self) and
-      (not $dirty.include?([x, y+1]))
+      (not dirty?([x, y+1]))
     then
       out_y = y
       out_y +=1 while (out_y < 25-1 and $codeGrid[out_y][x] == self)
 
       # can't output unless there's empty non-dirty space
-      return if $codeGrid[out_y][x] != Empty.instance or $dirty.include?([x, out_y])
+      return if $codeGrid[out_y][x] != Empty.instance or dirty?([x, out_y])
 
       $dirty << [x, out_y]
       $codeGrid[out_y][x] = $codeGrid[y-1][x]
