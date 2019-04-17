@@ -96,10 +96,10 @@ def pushBlocksLeft(x, y)
   return false if (not $theGrid[y][pos_left_edge].transparent? and not dirty?([x, y]))
 
   # can only push into an empty ramp
-  return false if $theGrid[y][pos_left_edge].part == RampLeft.instance and not pushBlocksLeft(pos_left_edge-1, y-1)
+  return false if $theGrid[y][pos_left_edge] == RampLeft.instance and not pushBlocksLeft(pos_left_edge-1, y-1)
 
-  was_furnace = $theGrid[y][pos_left_edge].part == Furnace.instance
-  was_ramp = $theGrid[y][pos_left_edge].part == RampLeft.instance
+  was_furnace = $theGrid[y][pos_left_edge] == Furnace.instance
+  was_ramp = $theGrid[y][pos_left_edge] == RampLeft.instance
 
   # do some pushing
   (pos_left_edge..x-1).each do | xx |
@@ -136,10 +136,10 @@ def pushBlocksRight(x, y)
   return false if not ($theGrid[y][pos_right_edge].transparent? and not dirty?([x, y]))
 
   # can only push into an empty ramp
-  return false if $theGrid[y][pos_right_edge].part == RampRight.instance and not pushBlocksRight(pos_right_edge+1, y-1)
+  return false if $theGrid[y][pos_right_edge] == RampRight.instance and not pushBlocksRight(pos_right_edge+1, y-1)
 
-  was_furnace = $theGrid[y][pos_right_edge].part == Furnace.instance
-  was_ramp = $theGrid[y][pos_right_edge].part == RampRight.instance
+  was_furnace = $theGrid[y][pos_right_edge] == Furnace.instance
+  was_ramp = $theGrid[y][pos_right_edge] == RampRight.instance
 
   # do some pushing, marking blockd as dirty
   (x+1..pos_right_edge).reverse_each do | xx |
@@ -177,6 +177,7 @@ class CodeGrid
   end
 
   # this method is necessary to access the cell contents directly
+  # it's not meant to be used outside of the collaborator classes
   # FIXME - feels a bit like a kludge
   def at(x, y)
     @codeGrid[y][x]
@@ -282,6 +283,10 @@ class CodeGridPosition
   def initialize(x, y)
     @x = x
     @y = y
+  end
+
+  def ==(part)
+    $theGrid.at(@x, @y) == part
   end
 
   def part
@@ -459,8 +464,8 @@ class RandomCrate < SingletonPart
 
   def action(x, y)
     # change into a numerical crate if not directly above or below a copier
-    if not ((y < 25-1 and $theGrid[y+1][x].part == CopierDown.instance) or
-            (y > 0 and $theGrid[y-1][x].part == CopierUp.instance))
+    if not ((y < 25-1 and $theGrid[y+1][x] == CopierDown.instance) or
+            (y > 0 and $theGrid[y-1][x] == CopierUp.instance))
     then
       $dirty << [x, y]
       $theGrid[y][x] = Crate.new(rand(0..9))
@@ -499,7 +504,7 @@ class PipeDown < SingletonPart
       (not dirty?([x, y+1]))
     then
       out_y = y
-      out_y +=1 while (out_y < 25-1 and $theGrid[out_y][x].part == self)
+      out_y +=1 while (out_y < 25-1 and $theGrid[out_y][x] == self)
 
       # can't output unless there's empty non-dirty space
       return if (not $theGrid[out_y][x].empty?) or dirty?([x, out_y])
@@ -524,14 +529,14 @@ class PipeUp < SingletonPart
       y < 25-1 and
       $theGrid[y+1][x].crate? and
       (not dirty?([x, y+1])) and
-      ($theGrid[y-1][x].empty? or $theGrid[y-1][x].part == self) and
+      ($theGrid[y-1][x].empty? or $theGrid[y-1][x] == self) and
       (not dirty?([x, y-1]))
     then
       out_y = y
-      out_y -=1 while (out_y > 0 and $theGrid[out_y][x].part == self)
+      out_y -=1 while (out_y > 0 and $theGrid[out_y][x] == self)
 
       # can't output unless there's empty non-dirty space
-      return if $theGrid[out_y][x].part != Empty.instance or dirty?([x, out_y])
+      return if $theGrid[out_y][x] != Empty.instance or dirty?([x, out_y])
 
       $dirty << [x, out_y]
       $theGrid[out_y][x] = $theGrid[y+1][x]
@@ -648,7 +653,7 @@ class BulldozerLeft < SingletonPart
       fall(x, y)
     # suck itself upwards
     elsif y > 1 and
-         $theGrid[y-1][x].part == BulldozerPipe.instance and
+         $theGrid[y-1][x] == BulldozerPipe.instance and
          not dirty?([x, y-1]) and
          $theGrid[y-2][x].empty? and
          not dirty?([x, y-2])
@@ -660,7 +665,7 @@ class BulldozerLeft < SingletonPart
     elsif x > 0
       if $theGrid[y][x-1].crate? and not dirty?([x-1, y])
         return if x <=1 or not pushBlocksLeft(x-1, y)
-      elsif y < 0 and $theGrid[y][x-1].part == RampLeft.instance and not dirty?([x-1, y])
+      elsif y < 0 and $theGrid[y][x-1] == RampLeft.instance and not dirty?([x-1, y])
         return if $theGrid[y-1][x-1].crate? and not pushBlocksLeft(x-1, y-1)
         $dirty << [x-1, y-1]
         $theGrid[y-1][x-1] = self
@@ -693,7 +698,7 @@ class BulldozerRight < SingletonPart
       fall(x, y)
   # suck itself upwards
     elsif y > 1 and
-         $theGrid[y-1][x].part == BulldozerPipe.instance and
+         $theGrid[y-1][x] == BulldozerPipe.instance and
          not dirty?([x, y-1]) and
          $theGrid[y-2][x].empty? and
          not dirty?([x, y-2])
@@ -705,7 +710,7 @@ class BulldozerRight < SingletonPart
     elsif x > 0
       if $theGrid[y][x+1].crate? and not dirty?([x+1, y])
         return if x >=80-2 or not pushBlocksRight(x+1, y)
-      elsif y < 0 and $theGrid[y][x+1].part == RampRight.instance and not dirty?([x+1, y])
+      elsif y < 0 and $theGrid[y][x+1] == RampRight.instance and not dirty?([x+1, y])
         return if $theGrid[y-1][x+1].crate? and not pushBlocksRight(x+1, y-1)
         $dirty << [x+1, y-1]
         $theGrid[y-1][x+1] = self
@@ -775,11 +780,11 @@ class AbstractArithmeticPart < SingletonPart
     return if not $theGrid[y+1][x].crate? or dirty?([x-1, y+1])
 
     # ignore random crates
-    return if $theGrid[y+1][x-1].part == RandomCrate.instance
-    return if $theGrid[y+1][x].part == RandomCrate.instance
+    return if $theGrid[y+1][x-1] == RandomCrate.instance
+    return if $theGrid[y+1][x] == RandomCrate.instance
 
     # needs space for the output
-    return if $theGrid[y+1][x+1].part != Empty.instance or dirty?([x+1, y+1])
+    return if $theGrid[y+1][x+1] != Empty.instance or dirty?([x+1, y+1])
 
     # calculate result
     result = self.calculateResult(x, y)
