@@ -315,7 +315,7 @@ end
 class Part
   include AttrBoolean
 
-  attr_boolean :crate, :transparent, :empty
+  attr_boolean_reader :crate, :transparent, :empty
   attr_reader :char, :category
 
   # every concrete part should add itself to this array
