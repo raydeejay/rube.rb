@@ -253,7 +253,6 @@ class CodeGrid
   end
 end
 
-
 # This class wraps around a row in the CodeGrid
 class CodeGridRow
   @row
@@ -268,8 +267,10 @@ class CodeGridRow
     CodeGridPosition.new(column_index, @row_index)
   end
 
+  # assignment goes through to the underlying row, so we get the
+  # actual part if a CodeGridPosition was passed instead
   def []=(column_index, value)
-    @row[column_index] = value
+    @row[column_index] = value.part
     $dirty << [column_index, @row_index]
     $blocks_to_redraw << [column_index, @row_index]
   end
@@ -325,6 +326,11 @@ class Part
 
   def self.register
     @@parts << self
+  end
+
+  # this method makes CodeGridPositions and Parts polymorphic
+  def part
+    self
   end
 
   def initialize
