@@ -78,7 +78,7 @@ end
 
 def fall(x, y)
   $dirty << [x, y+1]
-  $theGrid[y+1][x] = $theGrid[y][x].part
+  $theGrid[y+1][x] = $theGrid[y][x]
   $theGrid[y][x] = Empty.instance
 end
 
@@ -104,7 +104,7 @@ def pushBlocksLeft(x, y)
   # do some pushing
   (pos_left_edge..x-1).each do | xx |
     $dirty << [xx, y]
-    $theGrid[y][xx] = $theGrid[y][xx+1].part
+    $theGrid[y][xx] = $theGrid[y][xx+1]
     $theGrid[y][xx+1] = Empty.instance
   end
 
@@ -115,7 +115,7 @@ def pushBlocksLeft(x, y)
 
   # if we pushed into a ramp
   if was_ramp
-    $theGrid[y-1][pos_left_edge-1] = $theGrid[y][pos_left_edge].part
+    $theGrid[y-1][pos_left_edge-1] = $theGrid[y][pos_left_edge]
     $theGrid[y][pos_left_edge] = RampLeft.instance
   end
 
@@ -144,7 +144,7 @@ def pushBlocksRight(x, y)
   # do some pushing, marking blockd as dirty
   (x+1..pos_right_edge).reverse_each do | xx |
     $dirty << [xx, y]
-    $theGrid[y][xx] = $theGrid[y][xx-1].part
+    $theGrid[y][xx] = $theGrid[y][xx-1]
     $theGrid[y][xx-1] = Empty.instance
   end
 
@@ -155,7 +155,7 @@ def pushBlocksRight(x, y)
 
   # if we pushed into a ramp
   if was_ramp
-    $theGrid[y-1][pos_right_edge+1] = $theGrid[y][pos_right_edge].part
+    $theGrid[y-1][pos_right_edge+1] = $theGrid[y][pos_right_edge]
     $theGrid[y][pos_right_edge] = RampRight.instance
   end
 
@@ -516,7 +516,7 @@ class PipeDown < SingletonPart
       return if (not $theGrid[out_y][x].empty?) or dirty?([x, out_y])
 
       $dirty << [x, out_y]
-      $theGrid[out_y][x] = $theGrid[y-1][x].part
+      $theGrid[out_y][x] = $theGrid[y-1][x]
       $theGrid[y-1][x] = Empty.instance
     end
   end
