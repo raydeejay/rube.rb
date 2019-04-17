@@ -15,10 +15,6 @@ require './GetKey'
 
 # Utility code
 ##############################
-def dirty?(point)
-  $dirty.include?(point)
-end
-
 def moveto(x, y)
   print "\x1B[#{y+1};#{x+1}H"
 end
@@ -50,19 +46,6 @@ def printCode(code, x, y)
 end
 
 
-# Loading the grid
-################################
-if ARGV.length == 1 then
-  s = File.new(ARGV[0], "r")
-else
-  print "no program\n"
-  exit 1
-end
-
-code = s.collect { |line| line }
-s.close()
-
-
 # Global-ish vars, need refactor
 ################################
 vars = [0]
@@ -85,14 +68,18 @@ $input_char_on_tape = 0
 
 # Independent-ish code
 ##############################
+def dirty?(point)
+  $dirty.include?(point)
+end
+
 def canFall?(x, y)
-  y < 25-1 and $codeGrid[y+1][x] == Empty.instance and not dirty?([x, y+1])
+  y < 25-1 and $theGrid[y+1][x].empty? and not dirty?([x, y+1])
 end
 
 def fall(x, y)
   $dirty << [x, y+1]
-  $codeGrid[y+1][x] = $codeGrid[y][x]
-  $codeGrid[y][x] = Empty.instance
+  $theGrid[y+1][x] = $theGrid[y][x].part
+  $theGrid[y][x] = Empty.instance
 end
 
 def pushBlocksLeft(x, y)
@@ -100,36 +87,36 @@ def pushBlocksLeft(x, y)
   return false if y < 0 or y >= 25 or x < 0 or x >= 80
 
   pos_left_edge = x
-  pos_left_edge -= 1 while $codeGrid[y][pos_left_edge].crate? and pos_left_edge > 0
+  pos_left_edge -= 1 while $theGrid[y][pos_left_edge].crate? and pos_left_edge > 0
 
   # can't push into the edge of the program
   return false if pos_left_edge == 0
 
   # can only push into transparent parts (empty, furnace, ramp)
-  return false if (not $codeGrid[y][pos_left_edge].transparent? and not dirty?([x, y]))
+  return false if (not $theGrid[y][pos_left_edge].transparent? and not dirty?([x, y]))
 
   # can only push into an empty ramp
-  return false if $codeGrid[y][pos_left_edge] == RampLeft.instance and not pushBlocksLeft(pos_left_edge-1, y-1)
+  return false if $theGrid[y][pos_left_edge].part == RampLeft.instance and not pushBlocksLeft(pos_left_edge-1, y-1)
 
-  was_furnace = $codeGrid[y][pos_left_edge] == Furnace.instance
-  was_ramp = $codeGrid[y][pos_left_edge] == RampLeft.instance
+  was_furnace = $theGrid[y][pos_left_edge].part == Furnace.instance
+  was_ramp = $theGrid[y][pos_left_edge].part == RampLeft.instance
 
   # do some pushing
   (pos_left_edge..x-1).each do | xx |
     $dirty << [xx, y]
-    $codeGrid[y][xx] = $codeGrid[y][xx+1]
-    $codeGrid[y][xx+1] = Empty.instance
+    $theGrid[y][xx] = $theGrid[y][xx+1].part
+    $theGrid[y][xx+1] = Empty.instance
   end
 
   # if we pushed into a furnace, erase the crate and restore the furnace
   if was_furnace
-    $codeGrid[y][pos_left_edge] = Furnace.instance
+    $theGrid[y][pos_left_edge] = Furnace.instance
   end
 
   # if we pushed into a ramp
   if was_ramp
-    $codeGrid[y-1][pos_left_edge-1] = $codeGrid[y][pos_left_edge]
-    $codeGrid[y][pos_left_edge] = RampLeft.instance
+    $theGrid[y-1][pos_left_edge-1] = $theGrid[y][pos_left_edge].part
+    $theGrid[y][pos_left_edge] = RampLeft.instance
   end
 
   return true
@@ -140,49 +127,189 @@ def pushBlocksRight(x, y)
   return false if y < 0 or y >= 25 or x < 0 or x >= 80
 
   pos_right_edge = x
-  pos_right_edge += 1 while $codeGrid[y][pos_right_edge].crate? and pos_right_edge < 80-1
+  pos_right_edge += 1 while $theGrid[y][pos_right_edge].crate? and pos_right_edge < 80-1
 
   # can't push into the edge of the program
   return false if pos_right_edge == 80-1
 
   # can only push into *non-dirty* transparent parts (empty, furnace, ramp)
-  return false if not ($codeGrid[y][pos_right_edge].transparent? and not dirty?([x, y]))
+  return false if not ($theGrid[y][pos_right_edge].transparent? and not dirty?([x, y]))
 
   # can only push into an empty ramp
-  return false if $codeGrid[y][pos_right_edge] == RampRight.instance and not pushBlocksRight(pos_right_edge+1, y-1)
+  return false if $theGrid[y][pos_right_edge].part == RampRight.instance and not pushBlocksRight(pos_right_edge+1, y-1)
 
-  was_furnace = $codeGrid[y][pos_right_edge] == Furnace.instance
-  was_ramp = $codeGrid[y][pos_right_edge] == RampRight.instance
+  was_furnace = $theGrid[y][pos_right_edge].part == Furnace.instance
+  was_ramp = $theGrid[y][pos_right_edge].part == RampRight.instance
 
   # do some pushing, marking blockd as dirty
   (x+1..pos_right_edge).reverse_each do | xx |
     $dirty << [xx, y]
-    $codeGrid[y][xx] = $codeGrid[y][xx-1]
-    $codeGrid[y][xx-1] = Empty.instance
+    $theGrid[y][xx] = $theGrid[y][xx-1].part
+    $theGrid[y][xx-1] = Empty.instance
   end
 
   # if we pushed into a furnace, erase the crate and restore the furnace
   if was_furnace
-    $codeGrid[y][pos_right_edge] == Furnace.instance
-    $codeGrid[y][pos_right_edge] = Furnace.instance
+    $theGrid[y][pos_right_edge] = Furnace.instance
   end
 
   # if we pushed into a ramp
   if was_ramp
-    $codeGrid[y-1][pos_right_edge+1] = $codeGrid[y][pos_right_edge]
-    $codeGrid[y][pos_right_edge] = RampRight.instance
+    $theGrid[y-1][pos_right_edge+1] = $theGrid[y][pos_right_edge].part
+    $theGrid[y][pos_right_edge] = RampRight.instance
   end
 
   return true
 end
 
 
-# Base classes
+# Program grid
+##############
+
+# This is a wrapper around an array of arrays of references to Parts
+class CodeGrid
+  attr_reader :width, :height
+
+  def initialize(width, height)
+    @width = width
+    @height = height
+    @codeGrid = Array.new(height) { Array.new(width) { Empty.instance } }
+  end
+
+  # this method is necessary to access the cell contents directly
+  # FIXME - feels a bit like a kludge
+  def at(x, y)
+    @codeGrid[y][x]
+  end
+
+  def loadChar(char, x, y)
+    # search for a singleton part
+    if part = Part.parts.detect { |each| each.instance.char == char }
+      entity = part.instance
+    else
+      # it's a dynamic part holding data, can't be a singleton
+      case char
+      when 'b'
+        entity = Crate.new(0)
+      when ('0'..'9')
+        entity = Crate.new(char.to_i)
+      else
+        # or simply a wall
+        entity = Wall.new(char)
+      end
+    end
+    @codeGrid[y][x] = entity
+  end
+
+  def [](index)
+    CodeGridRow.new(@codeGrid[index], index)
+  end
+
+  def reverse_each
+    @codeGrid.reverse_each
+  end
+
+  def load(filename)
+    File.open(filename, "r") do |s|
+      s.each.with_index do | line, y |
+        line.split('').each.with_index do | char, x |
+          loadChar(char, x, y)
+        end
+      end
+    end
+  end
+
+  def renderFull
+    clear()
+
+    moveto(0, 0)
+    @codeGrid.each.with_index do | line, y |
+      moveto(0, y)
+      print "\x1B[K"
+      line.each.with_index do | part, x |
+        printCode(part.char, x, y)
+      end
+    end
+
+    moveto(0, self.height + 1)
+    print "Output:\n"
+    moveto(0, self.height + 2)
+    u = $output.split("\n").last($outputCount).join("\n")
+    print "\x1B[0J#{u}"
+  end
+
+  def render
+    $blocks_to_redraw.each do |pos|
+      self[pos[1]][pos[0]].render
+    end
+    $blocks_to_redraw = []
+
+    moveto(0, self.height + 1)
+    print "Output:\n"
+    moveto(0, self.height + 2)
+    u = $output.split("\n").last($outputCount).join("\n")
+    print "\x1B[0J#{u}"
+  end
+end
+
+
+# This class wraps around a row in the CodeGrid
+class CodeGridRow
+  @row
+  @row_index
+
+  def initialize(row, row_index)
+    @row = row
+    @row_index = row_index
+  end
+
+  def [](column_index)
+    CodeGridPosition.new(column_index, @row_index)
+  end
+
+  def []=(column_index, value)
+    @row[column_index] = value
+    $dirty << [column_index, @row_index]
+    $blocks_to_redraw << [column_index, @row_index]
+  end
+end
+
+# This class wraps around a specific position in the CodeGrid
+class CodeGridPosition
+  @x
+  @y
+
+  def initialize(x, y)
+    @x = x
+    @y = y
+  end
+
+  def part
+    $theGrid.at(@x, @y)
+  end
+
+  def dirty?
+    dirty?([@x, @y])
+  end
+
+  # proxy any unknown method to the referenced Part
+  def method_missing(name, *args, &block)
+    $theGrid.at(@x, @y).send(name, *args, &block)
+  end
+
+  def render
+    printCode($theGrid.at(@x, @y).char, @x, @y)
+  end
+end
+
+
+
+# Base part classes
 ##############################
 class Part
   include AttrBoolean
 
-  attr_boolean :crate, :transparent
+  attr_boolean :crate, :transparent, :empty
   attr_reader :char, :category
 
   # every concrete part should add itself to this array
@@ -197,6 +324,7 @@ class Part
 
   def initialize
     # override (calling super) to redefine attributes
+    @empty = false
     @crate = false
     @transparent = false
     @char = nil
@@ -220,6 +348,7 @@ class Empty < SingletonPart
   register
   def initialize
     @char = " "
+    @empty = true
     @transparent = true
   end
 end
@@ -251,8 +380,8 @@ class Scanner < SingletonPart
   end
 
   def action(x, y)
-    if y < 25-1 and $codeGrid[y+1][x].crate? and not dirty?([x, y+1])
-      $output << " " << $codeGrid[y+1][x].number.to_s
+    if y < 25-1 and $theGrid[y+1][x].crate? and not dirty?([x, y+1])
+      $output << " " << $theGrid[y+1][x].number.to_s
     end
   end
 end
@@ -266,8 +395,8 @@ class Input < SingletonPart
   end
 
   def action(x, y)
-    if y < 25-1 and $input_char and $codeGrid[y+1][x] == Empty.instance and not dirty?([x, y+1])
-      $codeGrid[y+1][x] = Crate.new($input_char)
+    if y < 25-1 and $input_char and $theGrid[y+1][x].empty? and not dirty?([x, y+1])
+      $theGrid[y+1][x] = Crate.new($input_char)
     end
  end
 end
@@ -303,10 +432,10 @@ class Furnace < SingletonPart
   end
 
   def action(x, y)
-    $codeGrid[y][x+1] = Empty.instance if x < 80-1 and $codeGrid[y][x+1].crate?
-    $codeGrid[y][x-1] = Empty.instance if x > 0 and $codeGrid[y][x-1].crate?
-    $codeGrid[y+1][x] = Empty.instance if y < 25-1 and $codeGrid[y+1][x].crate?
-    $codeGrid[y-1][x] = Empty.instance if y > 0 and $codeGrid[y-1][x].crate?
+    $theGrid[y][x+1] = Empty.instance if x < 80-1 and $theGrid[y][x+1].crate?
+    $theGrid[y][x-1] = Empty.instance if x > 0 and $theGrid[y][x-1].crate?
+    $theGrid[y+1][x] = Empty.instance if y < 25-1 and $theGrid[y+1][x].crate?
+    $theGrid[y-1][x] = Empty.instance if y > 0 and $theGrid[y-1][x].crate?
   end
 end
 
@@ -330,11 +459,11 @@ class RandomCrate < SingletonPart
 
   def action(x, y)
     # change into a numerical crate if not directly above or below a copier
-    if not ((y < 25-1 and $codeGrid[y+1][x] == CopierDown.instance) or
-            (y > 0 and $codeGrid[y-1][x] == CopierUp.instance))
+    if not ((y < 25-1 and $theGrid[y+1][x].part == CopierDown.instance) or
+            (y > 0 and $theGrid[y-1][x].part == CopierUp.instance))
     then
       $dirty << [x, y]
-      $codeGrid[y][x] = Crate.new(rand(0..9))
+      $theGrid[y][x] = Crate.new(rand(0..9))
     end
 
     fall(x, y) if canFall?(x, y)
@@ -364,20 +493,20 @@ class PipeDown < SingletonPart
   def action(x, y)
     if y > 0 and
       y < 25-1 and
-      $codeGrid[y-1][x].crate? and
+      $theGrid[y-1][x].crate? and
       (not dirty?([x, y-1])) and
-      ($codeGrid[y+1][x] == Empty.instance or $codeGrid[y+1][x] == self) and
+      ($theGrid[y+1][x].empty? or $theGrid[y+1][x].is(self)) and
       (not dirty?([x, y+1]))
     then
       out_y = y
-      out_y +=1 while (out_y < 25-1 and $codeGrid[out_y][x] == self)
+      out_y +=1 while (out_y < 25-1 and $theGrid[out_y][x].part == self)
 
       # can't output unless there's empty non-dirty space
-      return if $codeGrid[out_y][x] != Empty.instance or dirty?([x, out_y])
+      return if (not $theGrid[out_y][x].empty?) or dirty?([x, out_y])
 
       $dirty << [x, out_y]
-      $codeGrid[out_y][x] = $codeGrid[y-1][x]
-      $codeGrid[y-1][x] = Empty.instance
+      $theGrid[out_y][x] = $theGrid[y-1][x].part
+      $theGrid[y-1][x] = Empty.instance
     end
   end
 end
@@ -393,20 +522,20 @@ class PipeUp < SingletonPart
   def action(x, y)
     if y > 0 and
       y < 25-1 and
-      $codeGrid[y+1][x].crate? and
+      $theGrid[y+1][x].crate? and
       (not dirty?([x, y+1])) and
-      ($codeGrid[y-1][x] == Empty.instance or $codeGrid[y-1][x] == self) and
+      ($theGrid[y-1][x].empty? or $theGrid[y-1][x].part == self) and
       (not dirty?([x, y-1]))
     then
       out_y = y
-      out_y -=1 while (out_y > 0 and $codeGrid[out_y][x] == self)
+      out_y -=1 while (out_y > 0 and $theGrid[out_y][x].part == self)
 
       # can't output unless there's empty non-dirty space
-      return if $codeGrid[out_y][x] != Empty.instance or dirty?([x, out_y])
+      return if $theGrid[out_y][x].part != Empty.instance or dirty?([x, out_y])
 
       $dirty << [x, out_y]
-      $codeGrid[out_y][x] = $codeGrid[y+1][x]
-      $codeGrid[y+1][x] = Empty.instance
+      $theGrid[out_y][x] = $theGrid[y+1][x]
+      $theGrid[y+1][x] = Empty.instance
     end
   end
 end
@@ -472,12 +601,12 @@ class CopierDown < SingletonPart
   def action(x, y)
     if y > 0 and
       y < 25-1 and
-      $codeGrid[y-1][x].crate? and
-      $codeGrid[y+1][x] == Empty.instance and
+      $theGrid[y-1][x].crate? and
+      $theGrid[y+1][x].empty? and
       not dirty?([x, y+1])
     then
       $dirty << [x, y+1]
-      $codeGrid[y+1][x] = $codeGrid[y-1][x]
+      $theGrid[y+1][x] = $theGrid[y-1][x]
     end
   end
 end
@@ -493,12 +622,12 @@ class CopierUp < SingletonPart
   def action(x, y)
     if y > 0 and
       y < 25-1 and
-      $codeGrid[y+1][x].crate? and
-      $codeGrid[y-1][x] == Empty.instance and
+      $theGrid[y+1][x].crate? and
+      $theGrid[y-1][x].empty? and
       not dirty?([x, y-1])
     then
       $dirty << [x, y-1]
-      $codeGrid[y-1][x] = $codeGrid[y+1][x]
+      $theGrid[y-1][x] = $theGrid[y+1][x]
     end
   end
 end
@@ -517,32 +646,32 @@ class BulldozerLeft < SingletonPart
   def action(x, y)
     if canFall?(x, y)
       fall(x, y)
-  # suck itself upwards
+    # suck itself upwards
     elsif y > 1 and
-         $codeGrid[y-1][x] == BulldozerPipe.instance and
+         $theGrid[y-1][x].part == BulldozerPipe.instance and
          not dirty?([x, y-1]) and
-         $codeGrid[y-2][x] == Empty.instance and
+         $theGrid[y-2][x].empty? and
          not dirty?([x, y-2])
     then
       $dirty << [x, y-2]
-      $codeGrid[y-2][x] = self
-      $codeGrid[y][x] = Empty.instance
+      $theGrid[y-2][x] = self
+      $theGrid[y][x] = Empty.instance
     # push and move?
     elsif x > 0
-      if $codeGrid[y][x-1].crate? and not dirty?([x-1, y])
+      if $theGrid[y][x-1].crate? and not dirty?([x-1, y])
         return if x <=1 or not pushBlocksLeft(x-1, y)
-      elsif y < 0 and $codeGrid[y][x-1] == RampLeft.instance and not dirty?([x-1, y])
-        return if $codeGrid[y-1][x-1].crate? and not pushBlocksLeft(x-1, y-1)
+      elsif y < 0 and $theGrid[y][x-1].part == RampLeft.instance and not dirty?([x-1, y])
+        return if $theGrid[y-1][x-1].crate? and not pushBlocksLeft(x-1, y-1)
         $dirty << [x-1, y-1]
-        $codeGrid[y-1][x-1] = self
-        $codeGrid[y][x] = Empty.instance
+        $theGrid[y-1][x-1] = self
+        $theGrid[y][x] = Empty.instance
       else
-        return if not ($codeGrid[y][x-1] == Empty.instance and not dirty?([x-1, y]))
+        return if not ($theGrid[y][x-1].empty? and not dirty?([x-1, y]))
       end
       # move if a push happened
       $dirty << [x-1, y]
-      $codeGrid[y][x-1] = self
-      $codeGrid[y][x] = Empty.instance
+      $theGrid[y][x-1] = self
+      $theGrid[y][x] = Empty.instance
 
       #turning behaviour goes here??
       # if
@@ -564,30 +693,30 @@ class BulldozerRight < SingletonPart
       fall(x, y)
   # suck itself upwards
     elsif y > 1 and
-         $codeGrid[y-1][x] == BulldozerPipe.instance and
+         $theGrid[y-1][x].part == BulldozerPipe.instance and
          not dirty?([x, y-1]) and
-         $codeGrid[y-2][x] == Empty.instance and
+         $theGrid[y-2][x].empty? and
          not dirty?([x, y-2])
     then
       $dirty << [x, y-2]
-      $codeGrid[y-2][x] = self
-      $codeGrid[y][x] = Empty.instance
+      $theGrid[y-2][x] = self
+      $theGrid[y][x] = Empty.instance
     # push and move?
     elsif x > 0
-      if $codeGrid[y][x+1].crate? and not dirty?([x+1, y])
+      if $theGrid[y][x+1].crate? and not dirty?([x+1, y])
         return if x >=80-2 or not pushBlocksRight(x+1, y)
-      elsif y < 0 and $codeGrid[y][x+1] == RampRight.instance and not dirty?([x+1, y])
-        return if $codeGrid[y-1][x+1].crate? and not pushBlocksRight(x+1, y-1)
+      elsif y < 0 and $theGrid[y][x+1].part == RampRight.instance and not dirty?([x+1, y])
+        return if $theGrid[y-1][x+1].crate? and not pushBlocksRight(x+1, y-1)
         $dirty << [x+1, y-1]
-        $codeGrid[y-1][x+1] = self
-        $codeGrid[y][x] = Empty.instance
+        $theGrid[y-1][x+1] = self
+        $theGrid[y][x] = Empty.instance
       else
-        return if not ($codeGrid[y][x+1] == Empty.instance and not dirty?([x+1, y]))
+        return if not ($theGrid[y][x+1].empty? and not dirty?([x+1, y]))
       end
       # move if a push happened
       $dirty << [x+1, y]
-      $codeGrid[y][x+1] = self
-      $codeGrid[y][x] = Empty.instance
+      $theGrid[y][x+1] = self
+      $theGrid[y][x] = Empty.instance
 
       #turning behaviour goes here??
       # if
@@ -605,7 +734,7 @@ class ConveyorLeft < SingletonPart
   end
 
   def action(x, y)
-    if y > 0 and x > 0 and $codeGrid[y-1][x].crate? and not dirty?([x, y-1])
+    if y > 0 and x > 0 and $theGrid[y-1][x].crate? and not dirty?([x, y-1])
       pushBlocksLeft(x, y-1)
     end
   end
@@ -620,7 +749,7 @@ class ConveyorRight < SingletonPart
   end
 
   def action(x, y)
-    if y > 0 and x > 0 and $codeGrid[y-1][x].crate? and not dirty?([x, y-1])
+    if y > 0 and x > 0 and $theGrid[y-1][x].crate? and not dirty?([x, y-1])
       pushBlocksRight(x, y-1)
     end
   end
@@ -642,24 +771,24 @@ class AbstractArithmeticPart < SingletonPart
     return if x==0 or x == 80-1 or y == 25-1
 
     # ignore non-crates and dirty numerical crates
-    return if not $codeGrid[y+1][x-1].crate? or dirty?([x-1, y+1])
-    return if not $codeGrid[y+1][x].crate? or dirty?([x-1, y+1])
+    return if not $theGrid[y+1][x-1].crate? or dirty?([x-1, y+1])
+    return if not $theGrid[y+1][x].crate? or dirty?([x-1, y+1])
 
     # ignore random crates
-    return if $codeGrid[y+1][x-1] == RandomCrate.instance
-    return if $codeGrid[y+1][x] == RandomCrate.instance
+    return if $theGrid[y+1][x-1].part == RandomCrate.instance
+    return if $theGrid[y+1][x].part == RandomCrate.instance
 
     # needs space for the output
-    return if $codeGrid[y+1][x+1] != Empty.instance or dirty?([x+1, y+1])
+    return if $theGrid[y+1][x+1].part != Empty.instance or dirty?([x+1, y+1])
 
     # calculate result
     result = self.calculateResult(x, y)
 
     # create result crate and destroy inputs
     $dirty << [x+1, y+1]
-    $codeGrid[y+1][x+1] = Crate.new(result)
-    $codeGrid[y+1][x-1] = Empty.instance
-    $codeGrid[y+1][x] = Empty.instance
+    $theGrid[y+1][x+1] = Crate.new(result)
+    $theGrid[y+1][x-1] = Empty.instance
+    $theGrid[y+1][x] = Empty.instance
   end
 end
 
@@ -671,7 +800,7 @@ class Adder < AbstractArithmeticPart
   end
 
   def calculateResult(x,y)
-    $codeGrid[y+1][x-1].number + $codeGrid[y+1][x].number
+    $theGrid[y+1][x-1].number + $theGrid[y+1][x].number
   end
 end
 
@@ -683,7 +812,7 @@ class Subtracter < AbstractArithmeticPart
   end
 
   def calculateResult(x,y)
-    $codeGrid[y+1][x-1].number - $codeGrid[y+1][x].number
+    $theGrid[y+1][x-1].number - $theGrid[y+1][x].number
   end
 end
 
@@ -694,72 +823,24 @@ end
 # blank lines are added at the end if necessary
 
 # the grid
-$codeGrid = Array.new(25) { Array.new(80) { Empty.instance } }
+#$theGrid = Array.new(25) { Array.new(80) { Empty.instance } }
 $dirty = []
-
-
-# Loading
-#########
-def loadChar(char, x, y)
-  # search for a singleton part
-  if part = Part.parts.detect { |each| each.instance.char == char }
-    entity = part.instance
-  else
-    # it's a dynamic part holding data, can't be a singleton
-    case char
-    when 'b'
-      entity = Crate.new(0)
-    when ('0'..'9')
-      entity = Crate.new(char.to_i)
-    else
-      # or simply a wall
-      entity = Wall.new(char)
-    end
-  end
-  $codeGrid[y][x] = entity
-end
-
-def load_grid(code)
-  code.each.with_index do | line, y |
-    line.split('').each.with_index do | char, x |
-      loadChar(char, x, y)
-    end
-  end
-end
-
+$blocks_to_redraw = nil
 
 # Displaying
 ############
-def printLevel(code)
-  clear()
-
-  moveto(0, 0)
-  $codeGrid.each.with_index do | line, y |
-    moveto(0, y)
-    print "\x1B[K"
-    line.each.with_index do | part, x |
-      printCode(part.char, x, y)
-    end
-  end
-
-  moveto(0, code.length + 1)
-  print "Output:\n"
-  moveto(0, code.length + 2)
-  u = $output.split("\n").last($outputCount).join("\n")
-  print "\x1B[0J#{u}"
-end
 
 
 # Running
 #########
-def run_one_step(code)
+def run_one_step()
   # (re)create the parts processing order list(s)
   # TODO - derive the size of this array from the highest category number
   processing_list = Array.new(7) { Array.new }
 
   # run through the rows from bottom to top, as per the spec
   # ignore any blocks without a category (they have no action)
-  $codeGrid.reverse_each.with_index do | row, y |
+  $theGrid.reverse_each.with_index do | row, y |
     row.each.with_index do | cell, x |
       processing_list[cell.category] << [cell, x, 25-1-y] if cell.category
     end
@@ -780,7 +861,7 @@ def run_one_step(code)
 
 end
 
-def run_one_control_cycle(code)
+def run_one_control_cycle()
   # hardcoded +[dsti[o[-]]+] program
   control = $controlProgram
 
@@ -793,7 +874,12 @@ def run_one_control_cycle(code)
     when '>'
     when '<'
     when 'd'
-      printLevel(code)
+      if $blocks_to_redraw == nil
+        $theGrid.renderFull
+        $blocks_to_redraw = []
+      else
+        $theGrid.render
+      end
     when 'i'
       if key = GetKey.getkey
         $input_char_on_tape = key
@@ -808,7 +894,7 @@ def run_one_control_cycle(code)
     when 's'
       sleep($delay)
     when 't'
-      run_one_step(code)
+      run_one_step()
     when 'a'
     end
   end
@@ -824,17 +910,17 @@ end
 
 # Temporary entry point
 #######################
-load_grid(code)
+input_filename = ARGV.length == 1 ? ARGV[0] : 'grid.rube'
+
+$theGrid = CodeGrid.new(80, 25)
+$theGrid.load(input_filename)
 
 (1..120).each do | each |
-  run_one_control_cycle(code)
+  run_one_control_cycle()
 end
 
 print "\n"
 exit 1
-
-
-
 
 
 # Old MarioLang code for temprorary reference or something
