@@ -280,7 +280,7 @@ end
 class AbstractArithmeticPart < SingletonPart
   def initialize
     super
-    @category = 1
+    @category = 6
   end
 
   def calculateResult(x, y)
@@ -340,7 +340,7 @@ class BulldozerLeft < SingletonPart
   Part.parts << self
   def initialize
     super
-    @category = 4
+    @category = 5
     @char = ']'
   end
 
@@ -385,7 +385,7 @@ class BulldozerRight < SingletonPart
   Part.parts << self
   def initialize
     super
-    @category = 4
+    @category = 5
     @char = '['
   end
 
@@ -430,7 +430,7 @@ class ConveyorLeft < SingletonPart
   Part.parts << self
   def initialize
     super
-    @category = 4
+    @category = 5
     @char = '<'
   end
 
@@ -445,7 +445,7 @@ class ConveyorRight < SingletonPart
   Part.parts << self
   def initialize
     super
-    @category = 4
+    @category = 5
     @char = '>'
   end
 
@@ -460,9 +460,9 @@ class RampLeft < SingletonPart
   Part.parts << self
   def initialize
     super
-    @category = 3
     @char = '\\'
     @transparent = true
+    @category = 3
   end
 end
 
@@ -470,9 +470,9 @@ class RampRight < SingletonPart
   Part.parts << self
   def initialize
     super
-    @category = 3
     @char = '/'
     @transparent = true
+    @category = 3
   end
 end
 
@@ -480,7 +480,7 @@ class CopierDown < SingletonPart
   Part.parts << self
   def initialize
     super
-    @category = 3
+    @category = 4
     @char = '!'
   end
 
@@ -501,7 +501,7 @@ class CopierUp < SingletonPart
   Part.parts << self
   def initialize
     super
-    @category = 3
+    @category = 4
     @char = 'i'
   end
 
@@ -705,7 +705,8 @@ end
 
 def run_one_step(code)
   # (re)create the parts processing order list(s)
-  processing_list = Array.new(6) { Array.new }
+  # TODO - derive the size of this array from the highest category number
+  processing_list = Array.new(7) { Array.new }
 
   # run through the rows from bottom to top, as per the spec
   # ignore any blocks without a category (they have no action)
