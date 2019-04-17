@@ -91,14 +91,12 @@ skip = 0
 $output = ""
 $outputCount = 20
 visual = (ARGV.length == 1)
-$delay = 1
+$delay = 0.1
 prefix = 0
 should_collect = false
 
-$dataGrid = Array.new(25) { Array.new(80) { $empty } }
 $codeGrid = Array.new(25) { Array.new(80) { $empty } }
 
-$futureDataGrid = $dataGrid.map do |each| each.dup end
 $futureCodeGrid = $codeGrid.map do |each| each.dup end
 
 $dirty = []
@@ -439,14 +437,13 @@ class Empty < SingletonPart
     true
   end
 end
-$empty = Empty.instance
 
-class Wall < SingletonPart
-  def char
-    "#"
+class Wall < Part
+  def initialize(char)
+    super()
+    @char = char
   end
 end
-$wall = Wall.instance
 
 
 # file must be 80x25
@@ -457,9 +454,8 @@ $wall = Wall.instance
 # use the loaded lines otherwise
 
 
-
 def loadChar(char, x, y)
-  entity = $empty
+  entity = Empty.instance
   data = 0
 
   case char
@@ -491,11 +487,10 @@ def loadChar(char, x, y)
   when ' '
     entity = Empty.instance
   else
-    entity = Wall.instance
+    entity = Wall.new(char)
   end
 
   $codeGrid[y][x] = entity
-  $dataGrid[y][x] = data
 end
 
 def load_grid(code)
@@ -529,41 +524,48 @@ $controlProgram = '+[dsti[o[-]]+]'
 
 def run_one_step(code)
   # copy the grid into the future one
-  # $futureDataGrid = $dataGrid.map do |each| each.dup end
   # $futureCodeGrid = $codeGrid.map do |each| each.dup end
 
   # (re)create the parts processing order list(s)
   processing_list = Array.new(6) { Array.new }
-  $codeGrid.each.with_index do | row, y |
+
+  # run through the rows from bottom to top, as per the spec
+  $codeGrid.reverse_each.with_index do | row, y |
     row.each.with_index do | cell, x |
       if cell != $empty and cell != $wall then
-        processing_list[cell.category] << [cell, x, y]
+        processing_list[cell.category] << [cell, x, 25-1-y]
       end
     end
   end
 
+  # # run through the rows from bottom to top, as per the spec
+  # $codeGrid.each.with_index do | row, y |
+  #   row.each.with_index do | cell, x |
+  #     if cell != $empty and cell != $wall then
+  #       processing_list[cell.category] << [cell, x, y]
+  #     end
+  #   end
+  # end
+
   # activate each part in the proper order
   processing_list.each do | category |
     # copy the grid into the future one
-    $futureDataGrid = $dataGrid.map do |each| each.dup end
-    $futureCodeGrid = $codeGrid.map do |each| each.dup end
 
     category.each do | entry |
+      $futureCodeGrid = $codeGrid.map do |each| each.dup end
       entry[0].action(entry[1], entry[2])
+      $codeGrid = $futureCodeGrid
     end
 
-    $dataGrid = $futureDataGrid
-    $codeGrid = $futureCodeGrid
   end
 
   # make the future the present
-  # $dataGrid = $futureDataGrid
   # $codeGrid = $futureCodeGrid
 end
 
 def run_one_control_cycle(code)
   # hardcoded +[dsti[o[-]]+] program
-  control = $controlProgram + 'd'
+  control = $controlProgram
 
   control.chars.each do | command |
     case command
