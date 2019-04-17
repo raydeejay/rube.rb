@@ -274,6 +274,10 @@ class Furnace < SingletonPart
   end
 
   def action(x, y)
+    $codeGrid[y][x+1] = Empty.instance if x < 80-1 and $codeGrid[y][x+1].crate?
+    $codeGrid[y][x-1] = Empty.instance if x > 0 and $codeGrid[y][x-1].crate?
+    $codeGrid[y+1][x] = Empty.instance if y < 25-1 and $codeGrid[y+1][x].crate?
+    $codeGrid[y-1][x] = Empty.instance if y > 0 and $codeGrid[y-1][x].crate?
   end
 end
 
