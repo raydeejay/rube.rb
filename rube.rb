@@ -324,9 +324,9 @@ class BulldozerLeft < SingletonPart
 
   def action(x, y)
     #fall
-    if y < 25-1 and $codeGrid[y+1][x].crate? and not $dirty.include?([x, y+1])
+    if y < 25-1 and $codeGrid[y+1][x] == Empty.instance and not $dirty.include?([x, y+1])
       $dirty << [x, y+1]
-      $codeGrid[y+1][x] = self
+      $codeGrid[y+1][x] = $codeGrid[y][x]
       $codeGrid[y][x] = Empty.instance
     # suck itself upwards
     elsif y > 1 and
