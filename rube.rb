@@ -121,6 +121,7 @@ def pushBlocksLeft(x, y)
 
   # do some pushing
   (pos_left_edge..x-1).each do | xx |
+    $dirty << [xx, y]
     $codeGrid[y][xx] = $codeGrid[y][xx+1]
     $codeGrid[y][xx+1] = Empty.instance
   end
