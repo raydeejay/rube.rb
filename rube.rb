@@ -258,11 +258,14 @@ class Furnace < SingletonPart
   end
 end
 
-class Adder < SingletonPart
+class AbstractArithmeticPart < SingletonPart
   def initialize
     super
-    @char = "F"
     @category = 1
+  end
+
+  def calculateResult(x, y)
+    raise Exception.new("#{self.class}>>#{__method__}: Subclass responsibility")
   end
 
   def action(x, y)
@@ -280,13 +283,35 @@ class Adder < SingletonPart
     return if $codeGrid[y+1][x+1] != Empty.instance or $dirty.include?([x+1, y+1])
 
     # calculate result
-    result = $codeGrid[y+1][x-1].value + $codeGrid[y+1][x].value
+    result = self.calculateResult(x, y)
 
     # create result crate and destroy inputs
     $dirty << [x+1, y+1]
     $codeGrid[y+1][x+1] = Crate.new(result)
     $codeGrid[y+1][x-1] = Empty.instance
     $codeGrid[y+1][x] = Empty.instance
+  end
+end
+
+class Adder < AbstractArithmeticPart
+  def initialize
+    super
+    @char = "+"
+  end
+
+  def calculateResult(x,y)
+    $codeGrid[y+1][x-1].value + $codeGrid[y+1][x].value
+  end
+end
+
+class Subtracter < AbstractArithmeticPart
+  def initialize
+    super
+    @char = "-"
+  end
+
+  def calculateResult(x,y)
+    $codeGrid[y+1][x-1].value - $codeGrid[y+1][x].value
   end
 end
 
@@ -554,6 +579,8 @@ def loadChar(char, x, y)
     entity = RandomCrate.instance
   when '+'
     entity = Adder.instance
+  when '-'
+    entity = Subtracter.instance
   when 'b'
     data = 0
   when ('0'..'9')
