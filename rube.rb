@@ -215,7 +215,7 @@ class Part
     @crate = false
     @transparent = false
     @char = nil
-    @category = 1
+    @category = nil
   end
 
   def action(x, y)
@@ -230,19 +230,18 @@ end
 
 class TurningPoint < SingletonPart
   Part.parts << self
-  def char
-    "T"
+  def initialize
+    super
+    @char = "T"
   end
 end
 
 class Scanner < SingletonPart
   Part.parts << self
-  def char
-    "*"
-  end
-
-  def category
-    0
+  def initialize
+    super
+    @char = "*"
+    @category = 0
   end
 
   def action(x, y)
@@ -252,12 +251,10 @@ end
 
 class Input < SingletonPart
   Part.parts << self
-  def char
-    "?"
-  end
-
-  def category
-    0
+  def initialize
+    super
+    @char = "?"
+    @category = 0
   end
 
   def action(x, y)
@@ -267,16 +264,11 @@ end
 
 class Furnace < SingletonPart
   Part.parts << self
-  def transparent?
-    true
-  end
-
-  def char
-    "F"
-  end
-
-  def category
-    1
+  def initialize
+    super
+    @char = "F"
+    @category = 1
+    @transparent = true
   end
 
   def action(x, y)
@@ -326,7 +318,7 @@ class Adder < AbstractArithmeticPart
   end
 
   def calculateResult(x,y)
-    $codeGrid[y+1][x-1].value + $codeGrid[y+1][x].value
+    $codeGrid[y+1][x-1].number + $codeGrid[y+1][x].number
   end
 end
 
@@ -338,7 +330,7 @@ class Subtracter < AbstractArithmeticPart
   end
 
   def calculateResult(x,y)
-    $codeGrid[y+1][x-1].value - $codeGrid[y+1][x].value
+    $codeGrid[y+1][x-1].number - $codeGrid[y+1][x].number
   end
 end
 
@@ -498,14 +490,12 @@ end
 
 class RandomCrate < SingletonPart
   Part.parts << self
-  attr_accessor :value
 
   def initialize
     super
     @crate = true
     @category = 1
     @char = "r"
-    @value = 0
   end
 
   def action(x, y)
@@ -523,31 +513,29 @@ end
 
 class Empty < SingletonPart
   Part.parts << self
-  def char
-    " "
-  end
-
-  def transparent?
-    true
+  def initialize
+    @char = " "
+    @transparent = true
   end
 end
 
 # these classes don't have a static character correspondence...
 class Crate < Part
-  attr_accessor :value
+  attr_accessor :number
 
-  def initialize(value)
-    @value = value
+  def initialize(number)
+    @number = number
     @crate = true
     @category = 3
+    @char = "b"
   end
 
   def char
-    case @value
+    case @number
     when (0..9)
-      @value.to_s
+      @number.to_s
     else
-      "b"
+      @char
     end
   end
 
@@ -623,11 +611,10 @@ def run_one_step(code)
   processing_list = Array.new(6) { Array.new }
 
   # run through the rows from bottom to top, as per the spec
+  # ignore any blocks without a category (they have no action)
   $codeGrid.reverse_each.with_index do | row, y |
     row.each.with_index do | cell, x |
-      if cell != Empty.instance and cell.class != Wall then
-        processing_list[cell.category] << [cell, x, 25-1-y]
-      end
+      processing_list[cell.category] << [cell, x, 25-1-y] if cell.category
     end
   end
 
