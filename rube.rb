@@ -213,8 +213,12 @@ class Part
     @@parts
   end
 
+  def self.register
+    @@parts << self
+  end
+
   def initialize
-    # override to redefine attributes
+    # override (calling super) to redefine attributes
     @crate = false
     @transparent = false
     @char = nil
@@ -227,6 +231,7 @@ class Part
 end
 
 class SingletonPart < Part
+  # subclasses of SingletonPart call `register`
   include Singleton
 end
 
@@ -234,7 +239,7 @@ end
 # Parts without an action (therefore no category)
 #################################################
 class Empty < SingletonPart
-  Part.parts << self
+  register
   def initialize
     @char = " "
     @transparent = true
@@ -249,7 +254,7 @@ class Wall < Part
 end
 
 class TurningPoint < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @char = "T"
@@ -260,7 +265,7 @@ end
 # Category 0 parts
 ##################
 class Scanner < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @char = "*"
@@ -275,7 +280,7 @@ class Scanner < SingletonPart
 end
 
 class Input < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @char = "?"
@@ -290,7 +295,7 @@ class Input < SingletonPart
 end
 
 class Splitter < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @char = "s"
@@ -299,7 +304,7 @@ class Splitter < SingletonPart
 end
 
 class StateControl < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @char = "a"
@@ -311,7 +316,7 @@ end
 # Category 1 parts
 ##################
 class Furnace < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @char = "F"
@@ -328,7 +333,7 @@ class Furnace < SingletonPart
 end
 
 class Door < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @category = 1
@@ -337,7 +342,7 @@ class Door < SingletonPart
 end
 
 class RandomCrate < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @crate = true
@@ -362,7 +367,7 @@ end
 # Category 2 parts
 ##################
 class BulldozerPipe < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @category = 2
@@ -371,7 +376,7 @@ class BulldozerPipe < SingletonPart
 end
 
 class PipeDown < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @category = 2
@@ -400,7 +405,7 @@ class PipeDown < SingletonPart
 end
 
 class PipeUp < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @category = 2
@@ -456,7 +461,7 @@ class Crate < Part
 end
 
 class RampLeft < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @char = '\\'
@@ -466,7 +471,7 @@ class RampLeft < SingletonPart
 end
 
 class RampRight < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @char = '/'
@@ -479,7 +484,7 @@ end
 # Category 4 parts
 ##################
 class CopierDown < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @category = 4
@@ -500,7 +505,7 @@ class CopierDown < SingletonPart
 end
 
 class CopierUp < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @category = 4
@@ -524,7 +529,7 @@ end
 # Category 5 parts
 ##################
 class BulldozerLeft < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @category = 5
@@ -569,7 +574,7 @@ class BulldozerLeft < SingletonPart
 end
 
 class BulldozerRight < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @category = 5
@@ -614,7 +619,7 @@ class BulldozerRight < SingletonPart
 end
 
 class ConveyorLeft < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @category = 5
@@ -629,7 +634,7 @@ class ConveyorLeft < SingletonPart
 end
 
 class ConveyorRight < SingletonPart
-  Part.parts << self
+  register
   def initialize
     super
     @category = 5
@@ -681,7 +686,7 @@ class AbstractArithmeticPart < SingletonPart
 end
 
 class Adder < AbstractArithmeticPart
-  Part.parts << self
+  register
   def initialize
     super
     @char = "+"
@@ -693,7 +698,7 @@ class Adder < AbstractArithmeticPart
 end
 
 class Subtracter < AbstractArithmeticPart
-  Part.parts << self
+  register
   def initialize
     super
     @char = "-"
