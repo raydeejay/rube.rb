@@ -10,6 +10,7 @@
 #   (only I'm not actually using Rails, but I'm upping the pun factor here)
 
 require 'singleton'
+require './GetKey'
 
 # Ruby magic
 ##############################
@@ -100,6 +101,7 @@ $delay = 0.1
 prefix = 0
 should_collect = false
 $controlProgram = '+[dsti[o[-]]+]'
+$input_char_on_tape = 0
 
 
 # Independent-ish code
@@ -260,7 +262,9 @@ class Input < SingletonPart
   end
 
   def action(x, y)
-    $output << "Input action\n"
+    if y < 25-1 and $input_char and $codeGrid[y+1][x] == Empty.instance and not dirty?([x, y+1])
+      $codeGrid[y+1][x] = Crate.new($input_char)
+    end
  end
 end
 
@@ -725,8 +729,14 @@ def run_one_step(code)
     category.each do | entry |
       entry[0].action(entry[1], entry[2])
     end
-
   end
+
+  # clear the dirty list
+  $dirty = []
+
+  # clear the input char
+  $input_char = nil
+
 end
 
 def run_one_control_cycle(code)
@@ -735,25 +745,32 @@ def run_one_control_cycle(code)
 
   control.chars.each do | command |
     case command
-    when "["
-    when "]"
-    when "+"
-    when "-"
-    when ">"
-    when "<"
-    when "d"
+    when '['
+    when ']'
+    when '+'
+    when '-'
+    when '>'
+    when '<'
+    when 'd'
       printLevel(code)
-    when "i"
-    when "o"
-    when "s"
+    when 'i'
+      if key = GetKey.getkey
+        $input_char_on_tape = key
+      else
+        $input_char_on_tape = 0
+      end
+    when 'o'
+      $input_char = ('0'.ord..'9'.ord).include?($input_char_on_tape) ? $input_char_on_tape.chr.to_i : nil
+    # when 'O'
+    #   $input_char = ('0'.ord..'9'.ord).include?($input_char_on_tape) ? $input_char_on_tape : 0
+    #   $input_char = $input_char_on_tape.chr
+    when 's'
       sleep($delay)
-    when "t"
+    when 't'
       run_one_step(code)
-    when "a"
+    when 'a'
     end
   end
-
-  $dirty = []
 
   # input at head (0 if no input) (doesn't block)
   # if head not zero
