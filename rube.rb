@@ -245,7 +245,9 @@ class Scanner < SingletonPart
   end
 
   def action(x, y)
-    $output << "Scanner action\n"
+    if y < 25-1 and $codeGrid[y+1][x].crate? and not dirty?([x, y+1])
+      $output << " " << $codeGrid[y+1][x].number.to_s
+    end
   end
 end
 
@@ -662,7 +664,7 @@ end
 
 load_grid(code)
 
-(1..20).each do | each |
+(1..120).each do | each |
   run_one_control_cycle(code)
 end
 
