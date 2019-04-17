@@ -201,7 +201,7 @@ end
 class Part
   include AttrBoolean
 
-  attr_boolean :crate, :transparent, :abstract
+  attr_boolean :crate, :transparent
   attr_reader :char, :category
 
   # every concrete part should add itself to this array
@@ -212,7 +212,6 @@ class Part
 
   def initialize
     # override to redefine attributes
-    @abstract = false
     @crate = false
     @transparent = false
     @char = nil
