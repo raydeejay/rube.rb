@@ -452,6 +452,27 @@ class CopierDown < SingletonPart
   end
 end
 
+class CopierUp < SingletonPart
+  Part.parts << self
+  def initialize
+    super
+    @category = 3
+    @char = 'i'
+  end
+
+  def action(x, y)
+    if y > 0 and
+      y < 25-1 and
+      $codeGrid[y+1][x].crate? and
+      $codeGrid[y-1][x] == Empty.instance and
+      not dirty?([x, y-1])
+    then
+      $dirty << [x, y-1]
+      $codeGrid[y-1][x] = $codeGrid[y+1][x]
+    end
+  end
+end
+
 class BulldozerPipe < SingletonPart
   Part.parts << self
   def initialize
@@ -532,7 +553,7 @@ class RandomCrate < SingletonPart
   def action(x, y)
     # change into a numerical crate if not directly above or below a copier
     if not ((y < 25-1 and $codeGrid[y+1][x] == CopierDown.instance) or
-            (y > 0 and $codeGrid[y-1][x] == CopierDown.instance))
+            (y > 0 and $codeGrid[y-1][x] == CopierUp.instance))
     then
       $dirty << [x, y]
       $codeGrid[y][x] = Crate.new(rand(0..9))
