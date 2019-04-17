@@ -410,12 +410,10 @@ end
 class Crate < Part
   attr_accessor :value
 
-  def crate?
-    true
-  end
-
-  def initialize
-    @value = 0
+  def initialize(value)
+    @value = value
+    @crate = true
+    @category = 3
   end
 
   def char
@@ -427,8 +425,42 @@ class Crate < Part
     end
   end
 
-  def category
-    3
+  def action(x, y)
+    # fall
+    if y < 25-1 and $codeGrid[y+1][x] == Empty.instance and not $dirty.include?([x, y+1])
+      $dirty << [x, y+1]
+      $futureCodeGrid[y+1][x] = $futureCodeGrid[y][x]
+      $futureCodeGrid[y][x] = Empty.instance
+    end
+  end
+end
+
+class RandomCrate < SingletonPart
+  attr_accessor :value
+
+  def initialize
+    super
+    @crate = true
+    @category = 1
+    @char = "r"
+    @value = 0
+  end
+
+  def action(x, y)
+    # change into a numerical crate if not directly above or below a copier
+    if not ((y < 25-1 and $codeGrid[y+1][x] == CopierDown.instance) or
+            (y > 0 and $codeGrid[y-1][x] == CopierDown.instance))
+    then
+      $dirty << [x, y]
+      $futureCodeGrid[y][x] = Crate.new(rand(0..9))
+    end
+
+    # fall
+    if y < 25-1 and $codeGrid[y+1][x] == Empty.instance and not $dirty.include?([x, y+1])
+      $dirty << [x, y+1]
+      $futureCodeGrid[y+1][x] = $futureCodeGrid[y][x]
+      $futureCodeGrid[y][x] = Empty.instance
+    end
   end
 end
 
@@ -483,11 +515,12 @@ def loadChar(char, x, y)
     entity = BulldozerPipe.instance
   when 'V'
     entity = PipeDown.instance
+  when 'r'
+    entity = RandomCrate.instance
   when 'b'
     data = 0
   when ('0'..'9')
-    entity = Crate.new
-    entity.value = char.to_i
+    entity = Crate.new(char.to_i)
   when ' '
     entity = Empty.instance
   else
