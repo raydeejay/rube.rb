@@ -490,6 +490,35 @@ class PipeDown < SingletonPart
   end
 end
 
+class PipeUp < SingletonPart
+  Part.parts << self
+  def initialize
+    super
+    @category = 2
+    @char = 'A'
+  end
+
+  def action(x, y)
+    if y > 0 and
+      y < 25-1 and
+      $codeGrid[y+1][x].crate? and
+      (not dirty?([x, y+1])) and
+      ($codeGrid[y-1][x] == Empty.instance or $codeGrid[y-1][x] == self) and
+      (not dirty?([x, y-1]))
+    then
+      out_y = y
+      out_y -=1 while (out_y > 0 and $codeGrid[out_y][x] == self)
+
+      # can't output unless there's empty non-dirty space
+      return if $codeGrid[out_y][x] != Empty.instance or dirty?([x, out_y])
+
+      $dirty << [x, out_y]
+      $codeGrid[out_y][x] = $codeGrid[y+1][x]
+      $codeGrid[y+1][x] = Empty.instance
+    end
+  end
+end
+
 class RandomCrate < SingletonPart
   Part.parts << self
 
