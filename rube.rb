@@ -34,6 +34,7 @@ module AttrBoolean
   end
 end
 
+
 # Utility code
 ##############################
 def dirty?(point)
@@ -71,8 +72,8 @@ def printCode(code, x, y)
 end
 
 
-################################
 # Loading the grid
+################################
 if ARGV.length == 1 then
   s = File.new(ARGV[0], "r")
 else
@@ -198,7 +199,7 @@ def pushBlocksRight(x, y)
 end
 
 
-# Classes
+# Base classes
 ##############################
 class Part
   include AttrBoolean
@@ -230,6 +231,23 @@ class SingletonPart < Part
 end
 
 
+# Parts without an action (therefore no category)
+#################################################
+class Empty < SingletonPart
+  Part.parts << self
+  def initialize
+    @char = " "
+    @transparent = true
+  end
+end
+
+class Wall < Part
+  def initialize(char)
+    super()
+    @char = char
+  end
+end
+
 class TurningPoint < SingletonPart
   Part.parts << self
   def initialize
@@ -238,6 +256,9 @@ class TurningPoint < SingletonPart
   end
 end
 
+
+# Category 0 parts
+##################
 class Scanner < SingletonPart
   Part.parts << self
   def initialize
@@ -268,6 +289,27 @@ class Input < SingletonPart
  end
 end
 
+class Splitter < SingletonPart
+  Part.parts << self
+  def initialize
+    super
+    @char = "s"
+    @category = 0
+  end
+end
+
+class StateControl < SingletonPart
+  Part.parts << self
+  def initialize
+    super
+    @char = "a"
+    @category = 0
+  end
+end
+
+
+# Category 1 parts
+##################
 class Furnace < SingletonPart
   Part.parts << self
   def initialize
@@ -285,65 +327,202 @@ class Furnace < SingletonPart
   end
 end
 
-class AbstractArithmeticPart < SingletonPart
+class Door < SingletonPart
+  Part.parts << self
   def initialize
     super
-    @category = 6
+    @category = 1
+    @char = "D"
   end
+end
 
-  def calculateResult(x, y)
-    raise Exception.new("#{self.class}>>#{__method__}: Subclass responsibility")
+class RandomCrate < SingletonPart
+  Part.parts << self
+  def initialize
+    super
+    @crate = true
+    @category = 1
+    @char = "r"
   end
 
   def action(x, y)
-    return if x==0 or x == 80-1 or y == 25-1
+    # change into a numerical crate if not directly above or below a copier
+    if not ((y < 25-1 and $codeGrid[y+1][x] == CopierDown.instance) or
+            (y > 0 and $codeGrid[y-1][x] == CopierUp.instance))
+    then
+      $dirty << [x, y]
+      $codeGrid[y][x] = Crate.new(rand(0..9))
+    end
 
-    # ignore non-crates and dirty numerical crates
-    return if not $codeGrid[y+1][x-1].crate? or dirty?([x-1, y+1])
-    return if not $codeGrid[y+1][x].crate? or dirty?([x-1, y+1])
-
-    # ignore random crates
-    return if $codeGrid[y+1][x-1] == RandomCrate.instance
-    return if $codeGrid[y+1][x] == RandomCrate.instance
-
-    # needs space for the output
-    return if $codeGrid[y+1][x+1] != Empty.instance or dirty?([x+1, y+1])
-
-    # calculate result
-    result = self.calculateResult(x, y)
-
-    # create result crate and destroy inputs
-    $dirty << [x+1, y+1]
-    $codeGrid[y+1][x+1] = Crate.new(result)
-    $codeGrid[y+1][x-1] = Empty.instance
-    $codeGrid[y+1][x] = Empty.instance
+    fall(x, y) if canFall?(x, y)
   end
 end
 
-class Adder < AbstractArithmeticPart
+
+# Category 2 parts
+##################
+class BulldozerPipe < SingletonPart
   Part.parts << self
   def initialize
     super
-    @char = "+"
-  end
-
-  def calculateResult(x,y)
-    $codeGrid[y+1][x-1].number + $codeGrid[y+1][x].number
+    @category = 2
+    @char = '^'
   end
 end
 
-class Subtracter < AbstractArithmeticPart
+class PipeDown < SingletonPart
   Part.parts << self
   def initialize
     super
-    @char = "-"
+    @category = 2
+    @char = 'V'
   end
 
-  def calculateResult(x,y)
-    $codeGrid[y+1][x-1].number - $codeGrid[y+1][x].number
+  def action(x, y)
+    if y > 0 and
+      y < 25-1 and
+      $codeGrid[y-1][x].crate? and
+      (not dirty?([x, y-1])) and
+      ($codeGrid[y+1][x] == Empty.instance or $codeGrid[y+1][x] == self) and
+      (not dirty?([x, y+1]))
+    then
+      out_y = y
+      out_y +=1 while (out_y < 25-1 and $codeGrid[out_y][x] == self)
+
+      # can't output unless there's empty non-dirty space
+      return if $codeGrid[out_y][x] != Empty.instance or dirty?([x, out_y])
+
+      $dirty << [x, out_y]
+      $codeGrid[out_y][x] = $codeGrid[y-1][x]
+      $codeGrid[y-1][x] = Empty.instance
+    end
   end
 end
 
+class PipeUp < SingletonPart
+  Part.parts << self
+  def initialize
+    super
+    @category = 2
+    @char = 'A'
+  end
+
+  def action(x, y)
+    if y > 0 and
+      y < 25-1 and
+      $codeGrid[y+1][x].crate? and
+      (not dirty?([x, y+1])) and
+      ($codeGrid[y-1][x] == Empty.instance or $codeGrid[y-1][x] == self) and
+      (not dirty?([x, y-1]))
+    then
+      out_y = y
+      out_y -=1 while (out_y > 0 and $codeGrid[out_y][x] == self)
+
+      # can't output unless there's empty non-dirty space
+      return if $codeGrid[out_y][x] != Empty.instance or dirty?([x, out_y])
+
+      $dirty << [x, out_y]
+      $codeGrid[out_y][x] = $codeGrid[y+1][x]
+      $codeGrid[y+1][x] = Empty.instance
+    end
+  end
+end
+
+
+# Category 3 parts
+##################
+class Crate < Part
+  attr_accessor :number
+
+  def initialize(number)
+    @number = number
+    @crate = true
+    @category = 3
+    @char = "b"
+  end
+
+  def char
+    case @number
+    when (0..9)
+      @number.to_s
+    else
+      @char
+    end
+  end
+
+  def action(x, y)
+    fall(x, y) if canFall?(x, y)
+  end
+end
+
+class RampLeft < SingletonPart
+  Part.parts << self
+  def initialize
+    super
+    @char = '\\'
+    @transparent = true
+    @category = 3
+  end
+end
+
+class RampRight < SingletonPart
+  Part.parts << self
+  def initialize
+    super
+    @char = '/'
+    @transparent = true
+    @category = 3
+  end
+end
+
+
+# Category 4 parts
+##################
+class CopierDown < SingletonPart
+  Part.parts << self
+  def initialize
+    super
+    @category = 4
+    @char = '!'
+  end
+
+  def action(x, y)
+    if y > 0 and
+      y < 25-1 and
+      $codeGrid[y-1][x].crate? and
+      $codeGrid[y+1][x] == Empty.instance and
+      not dirty?([x, y+1])
+    then
+      $dirty << [x, y+1]
+      $codeGrid[y+1][x] = $codeGrid[y-1][x]
+    end
+  end
+end
+
+class CopierUp < SingletonPart
+  Part.parts << self
+  def initialize
+    super
+    @category = 4
+    @char = 'i'
+  end
+
+  def action(x, y)
+    if y > 0 and
+      y < 25-1 and
+      $codeGrid[y+1][x].crate? and
+      $codeGrid[y-1][x] == Empty.instance and
+      not dirty?([x, y-1])
+    then
+      $dirty << [x, y-1]
+      $codeGrid[y-1][x] = $codeGrid[y+1][x]
+    end
+  end
+end
+
+
+# Category 5 parts
+##################
 class BulldozerLeft < SingletonPart
   Part.parts << self
   def initialize
@@ -464,206 +643,80 @@ class ConveyorRight < SingletonPart
   end
 end
 
-class RampLeft < SingletonPart
-  Part.parts << self
+# Category 6 parts
+##################
+class AbstractArithmeticPart < SingletonPart
   def initialize
     super
-    @char = '\\'
-    @transparent = true
-    @category = 3
+    @category = 6
   end
-end
 
-class RampRight < SingletonPart
-  Part.parts << self
-  def initialize
-    super
-    @char = '/'
-    @transparent = true
-    @category = 3
-  end
-end
-
-class CopierDown < SingletonPart
-  Part.parts << self
-  def initialize
-    super
-    @category = 4
-    @char = '!'
+  def calculateResult(x, y)
+    raise Exception.new("#{self.class}>>#{__method__}: Subclass responsibility")
   end
 
   def action(x, y)
-    if y > 0 and
-      y < 25-1 and
-      $codeGrid[y-1][x].crate? and
-      $codeGrid[y+1][x] == Empty.instance and
-      not dirty?([x, y+1])
-    then
-      $dirty << [x, y+1]
-      $codeGrid[y+1][x] = $codeGrid[y-1][x]
-    end
+    return if x==0 or x == 80-1 or y == 25-1
+
+    # ignore non-crates and dirty numerical crates
+    return if not $codeGrid[y+1][x-1].crate? or dirty?([x-1, y+1])
+    return if not $codeGrid[y+1][x].crate? or dirty?([x-1, y+1])
+
+    # ignore random crates
+    return if $codeGrid[y+1][x-1] == RandomCrate.instance
+    return if $codeGrid[y+1][x] == RandomCrate.instance
+
+    # needs space for the output
+    return if $codeGrid[y+1][x+1] != Empty.instance or dirty?([x+1, y+1])
+
+    # calculate result
+    result = self.calculateResult(x, y)
+
+    # create result crate and destroy inputs
+    $dirty << [x+1, y+1]
+    $codeGrid[y+1][x+1] = Crate.new(result)
+    $codeGrid[y+1][x-1] = Empty.instance
+    $codeGrid[y+1][x] = Empty.instance
   end
 end
 
-class CopierUp < SingletonPart
+class Adder < AbstractArithmeticPart
   Part.parts << self
   def initialize
     super
-    @category = 4
-    @char = 'i'
+    @char = "+"
   end
 
-  def action(x, y)
-    if y > 0 and
-      y < 25-1 and
-      $codeGrid[y+1][x].crate? and
-      $codeGrid[y-1][x] == Empty.instance and
-      not dirty?([x, y-1])
-    then
-      $dirty << [x, y-1]
-      $codeGrid[y-1][x] = $codeGrid[y+1][x]
-    end
+  def calculateResult(x,y)
+    $codeGrid[y+1][x-1].number + $codeGrid[y+1][x].number
   end
 end
 
-class BulldozerPipe < SingletonPart
+class Subtracter < AbstractArithmeticPart
   Part.parts << self
   def initialize
     super
-    @category = 2
-    @char = '^'
+    @char = "-"
+  end
+
+  def calculateResult(x,y)
+    $codeGrid[y+1][x-1].number - $codeGrid[y+1][x].number
   end
 end
 
-class PipeDown < SingletonPart
-  Part.parts << self
-  def initialize
-    super
-    @category = 2
-    @char = 'V'
-  end
 
-  def action(x, y)
-    if y > 0 and
-      y < 25-1 and
-      $codeGrid[y-1][x].crate? and
-      (not dirty?([x, y-1])) and
-      ($codeGrid[y+1][x] == Empty.instance or $codeGrid[y+1][x] == self) and
-      (not dirty?([x, y+1]))
-    then
-      out_y = y
-      out_y +=1 while (out_y < 25-1 and $codeGrid[out_y][x] == self)
-
-      # can't output unless there's empty non-dirty space
-      return if $codeGrid[out_y][x] != Empty.instance or dirty?([x, out_y])
-
-      $dirty << [x, out_y]
-      $codeGrid[out_y][x] = $codeGrid[y-1][x]
-      $codeGrid[y-1][x] = Empty.instance
-    end
-  end
-end
-
-class PipeUp < SingletonPart
-  Part.parts << self
-  def initialize
-    super
-    @category = 2
-    @char = 'A'
-  end
-
-  def action(x, y)
-    if y > 0 and
-      y < 25-1 and
-      $codeGrid[y+1][x].crate? and
-      (not dirty?([x, y+1])) and
-      ($codeGrid[y-1][x] == Empty.instance or $codeGrid[y-1][x] == self) and
-      (not dirty?([x, y-1]))
-    then
-      out_y = y
-      out_y -=1 while (out_y > 0 and $codeGrid[out_y][x] == self)
-
-      # can't output unless there's empty non-dirty space
-      return if $codeGrid[out_y][x] != Empty.instance or dirty?([x, out_y])
-
-      $dirty << [x, out_y]
-      $codeGrid[out_y][x] = $codeGrid[y+1][x]
-      $codeGrid[y+1][x] = Empty.instance
-    end
-  end
-end
-
-class RandomCrate < SingletonPart
-  Part.parts << self
-
-  def initialize
-    super
-    @crate = true
-    @category = 1
-    @char = "r"
-  end
-
-  def action(x, y)
-    # change into a numerical crate if not directly above or below a copier
-    if not ((y < 25-1 and $codeGrid[y+1][x] == CopierDown.instance) or
-            (y > 0 and $codeGrid[y-1][x] == CopierUp.instance))
-    then
-      $dirty << [x, y]
-      $codeGrid[y][x] = Crate.new(rand(0..9))
-    end
-
-    fall(x, y) if canFall?(x, y)
-  end
-end
-
-class Empty < SingletonPart
-  Part.parts << self
-  def initialize
-    @char = " "
-    @transparent = true
-  end
-end
-
-# these classes don't have a static character correspondence...
-class Crate < Part
-  attr_accessor :number
-
-  def initialize(number)
-    @number = number
-    @crate = true
-    @category = 3
-    @char = "b"
-  end
-
-  def char
-    case @number
-    when (0..9)
-      @number.to_s
-    else
-      @char
-    end
-  end
-
-  def action(x, y)
-    fall(x, y) if canFall?(x, y)
-  end
-end
-
-class Wall < Part
-  def initialize(char)
-    super()
-    @char = char
-  end
-end
-
-$codeGrid = Array.new(25) { Array.new(80) { Empty.instance } }
-$dirty = []
-
-
+# notes:
 # file must be 80x25
 # lines are padded or cut as necessary
 # blank lines are added at the end if necessary
 
+# the grid
+$codeGrid = Array.new(25) { Array.new(80) { Empty.instance } }
+$dirty = []
+
+
+# Loading
+#########
 def loadChar(char, x, y)
   # search for a singleton part
   if part = Part.parts.detect { |each| each.instance.char == char }
@@ -691,6 +744,9 @@ def load_grid(code)
   end
 end
 
+
+# Displaying
+############
 def printLevel(code)
   clear()
 
@@ -711,6 +767,8 @@ def printLevel(code)
 end
 
 
+# Running
+#########
 def run_one_step(code)
   # (re)create the parts processing order list(s)
   # TODO - derive the size of this array from the highest category number
@@ -779,6 +837,10 @@ def run_one_control_cycle(code)
   # set head to 1
 end
 
+
+
+# Temporary entry point
+#######################
 load_grid(code)
 
 (1..120).each do | each |
@@ -787,7 +849,6 @@ end
 
 print "\n"
 exit 1
-
 
 
 
