@@ -78,6 +78,7 @@ end
 code = s.collect { |line| line }
 s.close()
 
+
 # Global-ish vars, need refactor
 ################################
 vars = [0]
@@ -94,9 +95,8 @@ visual = (ARGV.length == 1)
 $delay = 0.1
 prefix = 0
 should_collect = false
+$controlProgram = '+[dsti[o[-]]+]'
 
-$codeGrid = Array.new(25) { Array.new(80) { $empty } }
-$dirty = []
 
 # Independent-ish code
 ##############################
@@ -180,6 +180,7 @@ def pushBlocksRight(x, y)
 
   return true
 end
+
 
 # Classes
 ##############################
@@ -480,6 +481,9 @@ class Wall < Part
   end
 end
 
+$codeGrid = Array.new(25) { Array.new(80) { Empty.instance } }
+$dirty = []
+
 
 # file must be 80x25
 # lines are padded or cut as necessary
@@ -556,7 +560,6 @@ def printLevel(code)
   print "\x1B[0J#{u}"
 end
 
-$controlProgram = '+[dsti[o[-]]+]'
 
 def run_one_step(code)
   # (re)create the parts processing order list(s)
@@ -565,7 +568,7 @@ def run_one_step(code)
   # run through the rows from bottom to top, as per the spec
   $codeGrid.reverse_each.with_index do | row, y |
     row.each.with_index do | cell, x |
-      if cell != $empty and cell != $wall then
+      if cell != Empty.instance and cell.class != Wall then
         processing_list[cell.category] << [cell, x, 25-1-y]
       end
     end
