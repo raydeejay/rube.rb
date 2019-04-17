@@ -96,9 +96,6 @@ prefix = 0
 should_collect = false
 
 $codeGrid = Array.new(25) { Array.new(80) { $empty } }
-
-$futureCodeGrid = $codeGrid.map do |each| each.dup end
-
 $dirty = []
 
 # Independent-ish code
@@ -119,21 +116,24 @@ def pushBlocksLeft(x, y)
   # can only push into an empty ramp
   return false if $codeGrid[y][pos_left_edge] == RampLeft.instance and not pushBlocksLeft(pos_left_edge-1, y-1)
 
+  was_furnace = $codeGrid[y][pos_left_edge] == Furnace.instance
+  was_ramp = $codeGrid[y][pos_left_edge] == RampLeft.instance
+
   # do some pushing
   (pos_left_edge..x-1).each do | xx |
-    $futureCodeGrid[y][xx] = $codeGrid[y][xx+1]
-    $futureCodeGrid[y][xx+1] = Empty.instance
+    $codeGrid[y][xx] = $codeGrid[y][xx+1]
+    $codeGrid[y][xx+1] = Empty.instance
   end
 
   # if we pushed into a furnace, erase the crate and restore the furnace
-  if $codeGrid[y][pos_left_edge] == Furnace.instance
-    $futureCodeGrid[y][pos_left_edge] = Furnace.instance
+  if was_furnace
+    $codeGrid[y][pos_left_edge] = Furnace.instance
   end
 
   # if we pushed into a ramp
-  if $codeGrid[y][pos_left_edge] == RampLeft.instance
-    $futureCodeGrid[y-1][pos_left_edge-1] = $futureCodeGrid[y][pos_left_edge]
-    $futureCodeGrid[y][pos_left_edge] = RampLeft.instance
+  if was_ramp
+    $codeGrid[y-1][pos_left_edge-1] = $codeGrid[y][pos_left_edge]
+    $codeGrid[y][pos_left_edge] = RampLeft.instance
   end
 
   return true
@@ -161,20 +161,20 @@ def pushBlocksRight(x, y)
   # do some pushing, marking blockd as dirty
   (x+1..pos_right_edge).reverse_each do | xx |
     $dirty << [xx, y]
-    $futureCodeGrid[y][xx] = $codeGrid[y][xx-1]
-    $futureCodeGrid[y][xx-1] = Empty.instance
+    $codeGrid[y][xx] = $codeGrid[y][xx-1]
+    $codeGrid[y][xx-1] = Empty.instance
   end
 
   # if we pushed into a furnace, erase the crate and restore the furnace
   if was_furnace
     $codeGrid[y][pos_right_edge] == Furnace.instance
-    $futureCodeGrid[y][pos_right_edge] = Furnace.instance
+    $codeGrid[y][pos_right_edge] = Furnace.instance
   end
 
   # if we pushed into a ramp
   if was_ramp
-    $futureCodeGrid[y-1][pos_right_edge+1] = $futureCodeGrid[y][pos_right_edge]
-    $futureCodeGrid[y][pos_right_edge] = RampRight.instance
+    $codeGrid[y-1][pos_right_edge+1] = $codeGrid[y][pos_right_edge]
+    $codeGrid[y][pos_right_edge] = RampRight.instance
   end
 
   return true
@@ -267,8 +267,8 @@ class BulldozerLeft < SingletonPart
     #fall
     if y < 25-1 and $codeGrid[y+1][x].crate? and not $dirty.include?([x, y+1])
       $dirty << [x, y+1]
-      $futureCodeGrid[y+1][x] = self
-      $futureCodeGrid[y][x] = Empty.instance
+      $codeGrid[y+1][x] = self
+      $codeGrid[y][x] = Empty.instance
     # suck itself upwards
     elsif y > 1 and
          $codeGrid[y-1][x] == BulldozerPipe.instance and
@@ -277,8 +277,8 @@ class BulldozerLeft < SingletonPart
          not $dirty.include?([x, y-2])
     then
       $dirty << [x, y-2]
-      $futureCodeGrid[y-2][x] = self
-      $futureCodeGrid[y][x] = Empty.instance
+      $codeGrid[y-2][x] = self
+      $codeGrid[y][x] = Empty.instance
     # push and move?
     elsif x > 0
       if $codeGrid[y][x-1].crate? and not $dirty.include?([x-1, y])
@@ -286,15 +286,15 @@ class BulldozerLeft < SingletonPart
       elsif y < 0 and $codeGrid[y][x-1] == RampLeft.instance and not $dirty.include?([x-1, y])
         return if $codeGrid[y-1][x-1].crate? and not pushBlocksLeft(x-1, y-1)
         $dirty << [x-1, y-1]
-        $futureCodeGrid[y-1][x-1] = self
-        $futureCodeGrid[y][x] = Empty.instance
+        $codeGrid[y-1][x-1] = self
+        $codeGrid[y][x] = Empty.instance
       else
         return if not ($codeGrid[y][x-1] == Empty.instance and not $dirty.include?([x-1, y]))
       end
       # move if a push happened
       $dirty << [x-1, y]
-      $futureCodeGrid[y][x-1] = self
-      $futureCodeGrid[y][x] = Empty.instance
+      $codeGrid[y][x-1] = self
+      $codeGrid[y][x] = Empty.instance
 
       #turning behaviour goes here??
       # if
@@ -364,9 +364,7 @@ class CopierDown < SingletonPart
       not $dirty.include?([x, y+1])
     then
       $dirty << [x, y+1]
-      # not quite right... we want a random number from R
-      # maybe introduce a method to the crates to copy them?
-      $futureCodeGrid[y+1][x] = $codeGrid[y-1][x]
+      $codeGrid[y+1][x] = $codeGrid[y-1][x]
     end
   end
 end
@@ -401,8 +399,8 @@ class PipeDown < SingletonPart
       return if $codeGrid[out_y][x] != Empty.instance or $dirty.include?([x, out_y])
 
       $dirty << [x, out_y]
-      $futureCodeGrid[out_y][x] = $codeGrid[y-1][x]
-      $futureCodeGrid[y-1][x] = Empty.instance
+      $codeGrid[out_y][x] = $codeGrid[y-1][x]
+      $codeGrid[y-1][x] = Empty.instance
     end
   end
 end
@@ -429,8 +427,8 @@ class Crate < Part
     # fall
     if y < 25-1 and $codeGrid[y+1][x] == Empty.instance and not $dirty.include?([x, y+1])
       $dirty << [x, y+1]
-      $futureCodeGrid[y+1][x] = $futureCodeGrid[y][x]
-      $futureCodeGrid[y][x] = Empty.instance
+      $codeGrid[y+1][x] = $codeGrid[y][x]
+      $codeGrid[y][x] = Empty.instance
     end
   end
 end
@@ -452,14 +450,14 @@ class RandomCrate < SingletonPart
             (y > 0 and $codeGrid[y-1][x] == CopierDown.instance))
     then
       $dirty << [x, y]
-      $futureCodeGrid[y][x] = Crate.new(rand(0..9))
+      $codeGrid[y][x] = Crate.new(rand(0..9))
     end
 
     # fall
     if y < 25-1 and $codeGrid[y+1][x] == Empty.instance and not $dirty.include?([x, y+1])
       $dirty << [x, y+1]
-      $futureCodeGrid[y+1][x] = $futureCodeGrid[y][x]
-      $futureCodeGrid[y][x] = Empty.instance
+      $codeGrid[y+1][x] = $codeGrid[y][x]
+      $codeGrid[y][x] = Empty.instance
     end
   end
 end
@@ -560,9 +558,6 @@ end
 $controlProgram = '+[dsti[o[-]]+]'
 
 def run_one_step(code)
-  # copy the grid into the future one
-  # $futureCodeGrid = $codeGrid.map do |each| each.dup end
-
   # (re)create the parts processing order list(s)
   processing_list = Array.new(6) { Array.new }
 
@@ -575,29 +570,13 @@ def run_one_step(code)
     end
   end
 
-  # # run through the rows from bottom to top, as per the spec
-  # $codeGrid.each.with_index do | row, y |
-  #   row.each.with_index do | cell, x |
-  #     if cell != $empty and cell != $wall then
-  #       processing_list[cell.category] << [cell, x, y]
-  #     end
-  #   end
-  # end
-
   # activate each part in the proper order
   processing_list.each do | category |
-    # copy the grid into the future one
-
     category.each do | entry |
-      $futureCodeGrid = $codeGrid.map do |each| each.dup end
       entry[0].action(entry[1], entry[2])
-      $codeGrid = $futureCodeGrid
     end
 
   end
-
-  # make the future the present
-  # $codeGrid = $futureCodeGrid
 end
 
 def run_one_control_cycle(code)
