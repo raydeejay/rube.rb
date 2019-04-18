@@ -59,10 +59,10 @@ skip = 0
 $output = ""
 $outputCount = 20
 visual = (ARGV.length == 1)
-$delay = 0.1
+$delay = 0.01
 prefix = 0
 should_collect = false
-$controlProgram = '+[dsti[o[-]]+]'
+$controlProgram = '+[dsti[O[-]]+]'
 $input_char_on_tape = 0
 
 
@@ -902,9 +902,8 @@ def run_one_control_cycle()
       end
     when 'o'
       $input_char = ('0'.ord..'9'.ord).include?($input_char_on_tape) ? $input_char_on_tape.chr.to_i : nil
-    # when 'O'
-    #   $input_char = ('0'.ord..'9'.ord).include?($input_char_on_tape) ? $input_char_on_tape : 0
-    #   $input_char = $input_char_on_tape.chr
+    when 'O'
+      $input_char = $input_char_on_tape ? $input_char_on_tape : nil
     when 's'
       sleep($delay)
     when 't'
