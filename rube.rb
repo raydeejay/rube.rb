@@ -690,6 +690,29 @@ end
 
 # Category 6 parts
 ##################
+SingletonPart.register :Gate do
+  category! 6
+  char! 'O'
+
+  def action(x, y)
+    if y > 0 and y < 80-1 and $theGrid[y-1][x].crate? and (not is_dirty?([x, y-1])) and $theGrid[y+1][x].crate?
+      if $theGrid[y-1][x].number > $theGrid[y+1][x].number
+        #right
+        if x < 80-1 and $theGrid[y-1][x+1].empty? and not $theGrid[y-1][x+1].dirty?
+          $theGrid[y-1][x+1] = $theGrid[y-1][x]
+          $theGrid[y-1][x] = Empty.instance
+        end
+      else
+        #left
+        if x > 0 and $theGrid[y-1][x-1].empty? and not $theGrid[y-1][x-1].dirty?
+          $theGrid[y-1][x-1] = $theGrid[y-1][x]
+          $theGrid[y-1][x] = Empty.instance
+        end
+      end
+    end
+  end
+end
+
 class AbstractArithmeticPart < SingletonPart
   def calculateResult(x, y)
     raise Exception.new("#{self.class}>>#{__method__}: Subclass responsibility")
