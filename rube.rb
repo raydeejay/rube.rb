@@ -12,6 +12,7 @@
 require_relative 'AttrBoolean'
 require_relative 'GetKey'
 require_relative 'Parts'
+require_relative 'Tape'
 
 include Parts
 
@@ -823,9 +824,13 @@ def run_one_control_cycle()
     when '['
     when ']'
     when '+'
+      $tape.increment
     when '-'
+      $tape.decrement
     when '>'
+      $tape.forward
     when '<'
+      $tape.backward
     when 'd'
       if $blocks_to_redraw == nil
         $theGrid.renderFull
@@ -836,14 +841,14 @@ def run_one_control_cycle()
     when 'i'
       if key = GetKey.getkey
         exit 1 if key == 27
-        $input_char_on_tape = key
+        $tape.write(key)
       else
-        $input_char_on_tape = nil
+        $tape.write(0)
       end
     when 'o'
-      $input_char = ('0'.ord..'9'.ord).include?($input_char_on_tape) ? $input_char_on_tape.chr.to_i : nil
+      $input_char = ('0'.ord..'9'.ord).include?($tape.read) ? $tape.read.chr.to_i : nil
     when 'O'
-      $input_char = $input_char_on_tape ? $input_char_on_tape : nil
+      $input_char = $tape.read.zero? ? nil : $tape.read
     when 's'
       sleep($delay)
     when 't'
@@ -867,6 +872,7 @@ input_filename = ARGV.length == 1 ? ARGV[0] : 'grid.rube'
 
 $theGrid = CodeGrid.new(80, 25)
 $theGrid.load(input_filename)
+$tape = Tape.new
 
 loop {
   run_one_control_cycle()
