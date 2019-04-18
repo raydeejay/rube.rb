@@ -685,8 +685,9 @@ class BulldozerLeft < SingletonPart
       $theGrid[y][x] = Empty.instance
 
       #turning behaviour goes here??
-      # if
-      # end
+      if y > 0 and x > 1 and $theGrid[y-1][x-2] == TurningPoint.instance
+        $theGrid[y][x-1] = BulldozerRight.instance
+      end
     end
   end
 end
@@ -730,8 +731,9 @@ class BulldozerRight < SingletonPart
       $theGrid[y][x] = Empty.instance
 
       #turning behaviour goes here??
-      # if
-      # end
+      if y > 0 and x < 80-2 and $theGrid[y-1][x+2] == TurningPoint.instance
+        $theGrid[y][x+1] = BulldozerLeft.instance
+      end
     end
   end
 end
