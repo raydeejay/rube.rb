@@ -9,9 +9,11 @@
 #   I'm implementing RubE (on Conveyor Belts) on Ruby (on Rails)
 #   (only I'm not actually using Rails, but I'm upping the pun factor here)
 
-require 'singleton'
-require './AttrBoolean'
-require './GetKey'
+require_relative 'AttrBoolean'
+require_relative 'GetKey'
+require_relative 'Parts'
+
+include Parts
 
 # Utility code
 ##############################
@@ -191,12 +193,12 @@ class CodeGrid
       # it's a dynamic part holding data, can't be a singleton
       case char
       when 'b'
-        entity = Crate.new(0)
+        entity = Crate.new.value!(0)
       when ('0'..'9')
-        entity = Crate.new(char.to_i)
+        entity = Crate.new.value!(char.to_i)
       else
         # or simply a wall
-        entity = Wall.new(char)
+        entity = Wall.new.value!(char)
       end
     end
     @codeGrid[y][x] = entity
@@ -309,140 +311,80 @@ class CodeGridPosition
 end
 
 
-
-# Base part classes
-##############################
-class Part
-  include AttrBoolean
-
-  attr_boolean_reader :crate, :transparent, :empty
-  attr_reader :char, :category
-
-  # every concrete part should add itself to this array
-  @@parts = []
-  def self.parts
-    @@parts
-  end
-
-  def self.register
-    @@parts << self
-  end
-
-  # this method makes CodeGridPositions and Parts polymorphic
-  def part
-    self
-  end
-
-  def initialize
-    # override (calling super) to redefine attributes
-    @empty = false
-    @crate = false
-    @transparent = false
-    @char = nil
-    @category = nil
-  end
-
-  def action(x, y)
-    # override to define an action
-  end
+# Parts without an action and, therefore, no category
+#####################################################
+SingletonPart.register :Empty do
+  char! ' '
+  empty!
+  transparent!
 end
 
-class SingletonPart < Part
-  # subclasses of SingletonPart call `register`
-  include Singleton
+SingletonPart.register :TurningPoint do
+  char! 'T'
 end
 
-
-# Parts without an action (therefore no category)
-#################################################
-class Empty < SingletonPart
-  register
-  def initialize
-    @char = " "
-    @empty = true
-    @transparent = true
-  end
-end
-
-class Wall < Part
-  def initialize(char)
-    super()
+# this part is dynamic
+Part.define :Wall do
+  def value!(char)
     @char = char
+    return self
   end
 end
-
-class TurningPoint < SingletonPart
-  register
-  def initialize
-    super
-    @char = "T"
-  end
-end
-
 
 # Category 0 parts
 ##################
-class Scanner < SingletonPart
-  register
-  def initialize
-    super
-    @char = "*"
-    @category = 0
-  end
+SingletonPart.register :Scanner do
+  char! '*'
+  category! 0
 
-  def action(x, y)
+  action! do | x, y |
     if y < 25-1 and $theGrid[y+1][x].crate? and not dirty?([x, y+1])
       $output << " " << $theGrid[y+1][x].number.to_s
     end
   end
 end
 
-class Input < SingletonPart
-  register
-  def initialize
-    super
-    @char = "?"
-    @category = 0
-  end
+SingletonPart.register :LetterScanner do
+  char! '$'
+  category! 0
 
-  def action(x, y)
-    if y < 25-1 and $input_char and $theGrid[y+1][x].empty? and not dirty?([x, y+1])
-      $theGrid[y+1][x] = Crate.new($input_char)
+  action! do | x, y |
+    if y < 25-1 and $theGrid[y+1][x].crate? and not dirty?([x, y+1])
+      $output << $theGrid[y+1][x].number.chr
     end
- end
-end
-
-class Splitter < SingletonPart
-  register
-  def initialize
-    super
-    @char = "s"
-    @category = 0
   end
 end
 
-class StateControl < SingletonPart
-  register
-  def initialize
-    super
-    @char = "a"
-    @category = 0
+SingletonPart.register :Input do
+  char! '?'
+  category! 0
+
+  action! do |x,y|
+    if y < 25-1 and $input_char and $theGrid[y+1][x].empty? and not dirty?([x, y+1])
+      $theGrid[y+1][x] = Crate.new.value!($input_char)
+    end
   end
+end
+
+SingletonPart.register :Splitter do
+  char! 's'
+  category! 0
+end
+
+SingletonPart.register :StateControl do
+  char! 'a'
+  category! 0
 end
 
 
 # Category 1 parts
 ##################
-class Furnace < SingletonPart
-  register
-  def initialize
-    super
-    @char = "F"
-    @category = 1
-    @transparent = true
-  end
+SingletonPart.register :Furnace do
+  char! 'F'
+  category! 1
+  transparent!
 
-  def action(x, y)
+  action! do |x,y|
     $theGrid[y][x+1] = Empty.instance if x < 80-1 and $theGrid[y][x+1].crate?
     $theGrid[y][x-1] = Empty.instance if x > 0 and $theGrid[y][x-1].crate?
     $theGrid[y+1][x] = Empty.instance if y < 25-1 and $theGrid[y+1][x].crate?
@@ -450,31 +392,23 @@ class Furnace < SingletonPart
   end
 end
 
-class Door < SingletonPart
-  register
-  def initialize
-    super
-    @category = 1
-    @char = "D"
-  end
+SingletonPart.register :Door do
+  category! 1
+  char! 'D'
 end
 
-class RandomCrate < SingletonPart
-  register
-  def initialize
-    super
-    @crate = true
-    @category = 1
-    @char = "r"
-  end
+SingletonPart.register :RandomCrate do
+  crate!
+  category! 1
+  char! 'r'
 
-  def action(x, y)
+  action! do |x,y|
     # change into a numerical crate if not directly above or below a copier
     if not ((y < 25-1 and $theGrid[y+1][x] == CopierDown.instance) or
             (y > 0 and $theGrid[y-1][x] == CopierUp.instance))
     then
       $dirty << [x, y]
-      $theGrid[y][x] = Crate.new(rand(0..9))
+      $theGrid[y][x] = Crate.new.value!(rand(0..9))
     end
 
     fall(x, y) if canFall?(x, y)
@@ -484,24 +418,16 @@ end
 
 # Category 2 parts
 ##################
-class BulldozerPipe < SingletonPart
-  register
-  def initialize
-    super
-    @category = 2
-    @char = '^'
-  end
+SingletonPart.register :BulldozerPipe do
+  category! 2
+  char! '^'
 end
 
-class PipeDown < SingletonPart
-  register
-  def initialize
-    super
-    @category = 2
-    @char = 'V'
-  end
+SingletonPart.register :PipeDown do
+  category! 2
+  char! 'V'
 
-  def action(x, y)
+  action! do |x,y|
     if y > 0 and
       y < 25-1 and
       $theGrid[y-1][x].crate? and
@@ -522,15 +448,11 @@ class PipeDown < SingletonPart
   end
 end
 
-class PipeUp < SingletonPart
-  register
-  def initialize
-    super
-    @category = 2
-    @char = 'A'
-  end
+SingletonPart.register :PipeUp do
+  category! 2
+  char! 'A'
 
-  def action(x, y)
+  action! do |x,y|
     if y > 0 and
       y < 25-1 and
       $theGrid[y+1][x].crate? and
@@ -554,14 +476,20 @@ end
 
 # Category 3 parts
 ##################
-class Crate < Part
-  attr_accessor :number
+Part.define :Crate do
+  crate!
+  category! 3
+  char! "b"
 
-  def initialize(number)
+  # attr_accessor :number
+
+  def value!(number)
     @number = number
-    @crate = true
-    @category = 3
-    @char = "b"
+    return self
+  end
+
+  def number
+    @number
   end
 
   def char
@@ -573,43 +501,31 @@ class Crate < Part
     end
   end
 
-  def action(x, y)
+  action! do |x,y|
     fall(x, y) if canFall?(x, y)
   end
 end
 
-class RampLeft < SingletonPart
-  register
-  def initialize
-    super
-    @char = '\\'
-    @transparent = true
-    @category = 3
-  end
+SingletonPart.register :RampLeft do
+  char! '\\'
+  transparent!
+  category! 3
 end
 
-class RampRight < SingletonPart
-  register
-  def initialize
-    super
-    @char = '/'
-    @transparent = true
-    @category = 3
-  end
+SingletonPart.register :RampRight do
+  char! '/'
+  transparent!
+  category! 3
 end
 
 
 # Category 4 parts
 ##################
-class CopierDown < SingletonPart
-  register
-  def initialize
-    super
-    @category = 4
-    @char = '!'
-  end
+SingletonPart.register :CopierDown do
+  category! 4
+  char! '!'
 
-  def action(x, y)
+  action! do |x,y|
     if y > 0 and
       y < 25-1 and
       $theGrid[y-1][x].crate? and
@@ -622,15 +538,11 @@ class CopierDown < SingletonPart
   end
 end
 
-class CopierUp < SingletonPart
-  register
-  def initialize
-    super
-    @category = 4
-    @char = 'i'
-  end
+SingletonPart.register :CopierUp do
+  category! 4
+  char! 'i'
 
-  def action(x, y)
+  action! do |x,y|
     if y > 0 and
       y < 25-1 and
       $theGrid[y+1][x].crate? and
@@ -646,15 +558,11 @@ end
 
 # Category 5 parts
 ##################
-class BulldozerLeft < SingletonPart
-  register
-  def initialize
-    super
-    @category = 5
-    @char = ']'
-  end
+SingletonPart.register :BulldozerLeft do
+  category! 5
+  char! ']'
 
-  def action(x, y)
+  action! do |x,y|
     if canFall?(x, y)
       fall(x, y)
     # suck itself upwards
@@ -669,41 +577,49 @@ class BulldozerLeft < SingletonPart
       $theGrid[y][x] = Empty.instance
     # push and move?
     elsif x > 0
-      if $theGrid[y][x-1].crate? and not dirty?([x-1, y])
-        return if x <=1 or not pushBlocksLeft(x-1, y)
-      elsif y < 0 and $theGrid[y][x-1] == RampLeft.instance and not dirty?([x-1, y])
-        return if $theGrid[y-1][x-1].crate? and not pushBlocksLeft(x-1, y-1)
-        $dirty << [x-1, y-1]
-        $theGrid[y-1][x-1] = self
-        $theGrid[y][x] = Empty.instance
-      else
-        return if not ($theGrid[y][x-1].empty? and not dirty?([x-1, y]))
-      end
-      # move if a push happened
-      $dirty << [x-1, y]
-      $theGrid[y][x-1] = self
-      $theGrid[y][x] = Empty.instance
+      should_push = true
 
-      #turning behaviour goes here??
-      if y > 0 and x > 1 and $theGrid[y-1][x-2] == TurningPoint.instance
-        $theGrid[y][x-1] = BulldozerRight.instance
+      if $theGrid[y][x-1].crate? and not dirty?([x-1, y])
+        if x <=1 or not pushBlocksLeft(x-1, y)
+          should_push = false
+        end
+      elsif y < 0 and $theGrid[y][x-1] == RampLeft.instance and not dirty?([x-1, y])
+        if $theGrid[y-1][x-1].crate? and not pushBlocksLeft(x-1, y-1)
+          should_push = false
+        else
+          $dirty << [x-1, y-1]
+          $theGrid[y-1][x-1] = self
+          $theGrid[y][x] = Empty.instance
+        end
+      else
+        if not ($theGrid[y][x-1].empty? and not dirty?([x-1, y]))
+          should_push = false
+        end
+      end
+
+      if should_push
+        # move if a push happened
+        $dirty << [x-1, y]
+        $theGrid[y][x-1] = self
+        $theGrid[y][x] = Empty.instance
+
+        #turning behaviour goes here??
+        if y > 0 and x > 1 and $theGrid[y-1][x-2] == TurningPoint.instance
+          $theGrid[y][x-1] = BulldozerRight.instance
+        end
       end
     end
   end
 end
 
-class BulldozerRight < SingletonPart
-  register
-  def initialize
-    super
-    @category = 5
-    @char = '['
-  end
+SingletonPart.register :BulldozerRight do
+  category! 5
+  char! '['
 
-  def action(x, y)
+  action! do |x,y|
     if canFall?(x, y)
       fall(x, y)
-  # suck itself upwards
+    # suck itself upwards
     elsif y > 1 and
          $theGrid[y-1][x] == BulldozerPipe.instance and
          not dirty?([x, y-1]) and
@@ -715,51 +631,55 @@ class BulldozerRight < SingletonPart
       $theGrid[y][x] = Empty.instance
     # push and move?
     elsif x > 0
-      if $theGrid[y][x+1].crate? and not dirty?([x+1, y])
-        return if x >=80-2 or not pushBlocksRight(x+1, y)
-      elsif y < 0 and $theGrid[y][x+1] == RampRight.instance and not dirty?([x+1, y])
-        return if $theGrid[y-1][x+1].crate? and not pushBlocksRight(x+1, y-1)
-        $dirty << [x+1, y-1]
-        $theGrid[y-1][x+1] = self
-        $theGrid[y][x] = Empty.instance
-      else
-        return if not ($theGrid[y][x+1].empty? and not dirty?([x+1, y]))
-      end
-      # move if a push happened
-      $dirty << [x+1, y]
-      $theGrid[y][x+1] = self
-      $theGrid[y][x] = Empty.instance
+      should_push = true
 
-      #turning behaviour goes here??
-      if y > 0 and x < 80-2 and $theGrid[y-1][x+2] == TurningPoint.instance
-        $theGrid[y][x+1] = BulldozerLeft.instance
+      if $theGrid[y][x+1].crate? and not dirty?([x+1, y])
+        if x >=80-2 or not pushBlocksRight(x+1, y)
+          should_push = false
+        end
+      elsif y < 0 and $theGrid[y][x+1] == RampRight.instance and not dirty?([x+1, y])
+        if $theGrid[y-1][x+1].crate? and not pushBlocksRight(x+1, y-1)
+          should_push = false
+        else
+          $dirty << [x+1, y-1]
+          $theGrid[y-1][x+1] = self
+          $theGrid[y][x] = Empty.instance
+        end
+      else
+        if not ($theGrid[y][x+1].empty? and not dirty?([x+1, y]))
+          should_push = false
+        end
+      end
+
+      if should_push
+        # move if a push happened
+        $dirty << [x+1, y]
+        $theGrid[y][x+1] = self
+        $theGrid[y][x] = Empty.instance
+
+        #turning behaviour goes here??
+        if y > 0 and x < 80-2 and $theGrid[y-1][x+2] == TurningPoint.instance
+          $theGrid[y][x+1] = BulldozerLeft.instance
+        end
       end
     end
   end
 end
 
-class ConveyorLeft < SingletonPart
-  register
-  def initialize
-    super
-    @category = 5
-    @char = '<'
-  end
+SingletonPart.register :ConveyorLeft do
+  category! 5
+  char! '<'
 
-  def action(x, y)
+  action! do |x,y|
     if y > 0 and x > 0 and $theGrid[y-1][x].crate? and not dirty?([x, y-1])
       pushBlocksLeft(x, y-1)
     end
   end
 end
 
-class ConveyorRight < SingletonPart
-  register
-  def initialize
-    super
-    @category = 5
-    @char = '>'
-  end
+SingletonPart.register :ConveyorRight do
+  category! 5
+  char! '>'
 
   def action(x, y)
     if y > 0 and x > 0 and $theGrid[y-1][x].crate? and not dirty?([x, y-1])
@@ -771,11 +691,6 @@ end
 # Category 6 parts
 ##################
 class AbstractArithmeticPart < SingletonPart
-  def initialize
-    super
-    @category = 6
-  end
-
   def calculateResult(x, y)
     raise Exception.new("#{self.class}>>#{__method__}: Subclass responsibility")
   end
@@ -799,17 +714,18 @@ class AbstractArithmeticPart < SingletonPart
 
     # create result crate and destroy inputs
     $dirty << [x+1, y+1]
-    $theGrid[y+1][x+1] = Crate.new(result)
+    $theGrid[y+1][x+1] = Crate.new.value!(result)
     $theGrid[y+1][x-1] = Empty.instance
     $theGrid[y+1][x] = Empty.instance
   end
 end
 
 class Adder < AbstractArithmeticPart
-  register
+  register_into_parts
   def initialize
     super
     @char = "+"
+    @category = 6
   end
 
   def calculateResult(x,y)
@@ -818,10 +734,11 @@ class Adder < AbstractArithmeticPart
 end
 
 class Subtracter < AbstractArithmeticPart
-  register
+  register_into_parts
   def initialize
     super
     @char = "-"
+    @category = 6
   end
 
   def calculateResult(x,y)

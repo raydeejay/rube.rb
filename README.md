@@ -8,11 +8,39 @@
 
   The file format is the grid itself.
 
+## Defining a Part
+  To add a new Part, the Part DSL can be used like this:
+
+    Part.define :NameOfPart do
+      char! "X"
+      category! 6
+      empty!
+      crate!
+      transparent!
+      action! do |x,y|
+          stuff
+      end
+    end
+
+    Singleton.register :NameOfPart do
+      char! "X"
+      category! 6
+      empty!
+      crate!
+      transparent!
+      action! do |x,y|
+          stuff
+      end
+    end
+
+  Singleton parts use `register` so they can make themselves eligible
+  when loading a program from a file.
+
 ## The control program
 
   The default control program is
-  
-    +[dsti[o[-]]+]
+
+    +[dsti[O[-]]+]
 
 ## The main program
 
@@ -25,12 +53,12 @@
 ### Loading
 
   Loading happens in X phases:
-  
+
   1. The text file is loaded, lines are padded/trimmed to 80 characters
   2. If the file is longer than 25 lines, additional lines are
      ignored. If it's shorter, additional 80-character blank lines are
      added until there's 25.
-  3. 
+  3.
 
 ### Order of evaluation
   Every part in the main program performs its action, in the following
@@ -54,4 +82,3 @@ Evaluation happens in frames, and should be double buffered, that is:
 
 There's a data layer and a code layer. That's because data may occupy
 the same place as code.
-
