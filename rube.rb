@@ -893,9 +893,10 @@ def run_one_control_cycle()
       end
     when 'i'
       if key = GetKey.getkey
+        exit 1 if key == 27
         $input_char_on_tape = key
       else
-        $input_char_on_tape = 0
+        $input_char_on_tape = nil
       end
     when 'o'
       $input_char = ('0'.ord..'9'.ord).include?($input_char_on_tape) ? $input_char_on_tape.chr.to_i : nil
