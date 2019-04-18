@@ -70,12 +70,12 @@ $input_char_on_tape = 0
 
 # Independent-ish code
 ##############################
-def dirty?(point)
+def is_dirty?(point)
   $dirty.include?(point)
 end
 
 def canFall?(x, y)
-  y < 25-1 and $theGrid[y+1][x].empty? and not dirty?([x, y+1])
+  y < 25-1 and $theGrid[y+1][x].empty? and not is_dirty?([x, y+1])
 end
 
 def fall(x, y)
@@ -95,7 +95,7 @@ def pushBlocksLeft(x, y)
   return false if pos_left_edge == 0
 
   # can only push into transparent parts (empty, furnace, ramp)
-  return false if (not $theGrid[y][pos_left_edge].transparent? and not dirty?([x, y]))
+  return false if (not $theGrid[y][pos_left_edge].transparent? and not is_dirty?([x, y]))
 
   # can only push into an empty ramp
   return false if $theGrid[y][pos_left_edge] == RampLeft.instance and not pushBlocksLeft(pos_left_edge-1, y-1)
@@ -135,7 +135,7 @@ def pushBlocksRight(x, y)
   return false if pos_right_edge == 80-1
 
   # can only push into *non-dirty* transparent parts (empty, furnace, ramp)
-  return false if not ($theGrid[y][pos_right_edge].transparent? and not dirty?([x, y]))
+  return false if not ($theGrid[y][pos_right_edge].transparent? and not is_dirty?([x, y]))
 
   # can only push into an empty ramp
   return false if $theGrid[y][pos_right_edge] == RampRight.instance and not pushBlocksRight(pos_right_edge+1, y-1)
@@ -297,7 +297,7 @@ class CodeGridPosition
   end
 
   def dirty?
-    dirty?([@x, @y])
+    is_dirty?([@x, @y])
   end
 
   # proxy any unknown method to the referenced Part
@@ -338,7 +338,7 @@ SingletonPart.register :Scanner do
   category! 0
 
   action! do | x, y |
-    if y < 25-1 and $theGrid[y+1][x].crate? and not dirty?([x, y+1])
+    if y < 25-1 and $theGrid[y+1][x].crate? and not is_dirty?([x, y+1])
       $output << " " << $theGrid[y+1][x].number.to_s
     end
   end
@@ -349,7 +349,7 @@ SingletonPart.register :LetterScanner do
   category! 0
 
   action! do | x, y |
-    if y < 25-1 and $theGrid[y+1][x].crate? and not dirty?([x, y+1])
+    if y < 25-1 and $theGrid[y+1][x].crate? and not is_dirty?([x, y+1])
       $output << $theGrid[y+1][x].number.chr
     end
   end
@@ -360,7 +360,7 @@ SingletonPart.register :Input do
   category! 0
 
   action! do |x,y|
-    if y < 25-1 and $input_char and $theGrid[y+1][x].empty? and not dirty?([x, y+1])
+    if y < 25-1 and $input_char and $theGrid[y+1][x].empty? and not is_dirty?([x, y+1])
       $theGrid[y+1][x] = Crate.new.value!($input_char)
     end
   end
@@ -431,15 +431,15 @@ SingletonPart.register :PipeDown do
     if y > 0 and
       y < 25-1 and
       $theGrid[y-1][x].crate? and
-      (not dirty?([x, y-1])) and
+      (not is_dirty?([x, y-1])) and
       ($theGrid[y+1][x].empty? or $theGrid[y+1][x].is(self)) and
-      (not dirty?([x, y+1]))
+      (not is_dirty?([x, y+1]))
     then
       out_y = y
       out_y +=1 while (out_y < 25-1 and $theGrid[out_y][x] == self)
 
       # can't output unless there's empty non-dirty space
-      return if (not $theGrid[out_y][x].empty?) or dirty?([x, out_y])
+      return if (not $theGrid[out_y][x].empty?) or is_dirty?([x, out_y])
 
       $dirty << [x, out_y]
       $theGrid[out_y][x] = $theGrid[y-1][x]
@@ -456,15 +456,15 @@ SingletonPart.register :PipeUp do
     if y > 0 and
       y < 25-1 and
       $theGrid[y+1][x].crate? and
-      (not dirty?([x, y+1])) and
+      (not is_dirty?([x, y+1])) and
       ($theGrid[y-1][x].empty? or $theGrid[y-1][x] == self) and
-      (not dirty?([x, y-1]))
+      (not is_dirty?([x, y-1]))
     then
       out_y = y
       out_y -=1 while (out_y > 0 and $theGrid[out_y][x] == self)
 
       # can't output unless there's empty non-dirty space
-      return if $theGrid[out_y][x] != Empty.instance or dirty?([x, out_y])
+      return if $theGrid[out_y][x] != Empty.instance or is_dirty?([x, out_y])
 
       $dirty << [x, out_y]
       $theGrid[out_y][x] = $theGrid[y+1][x]
@@ -530,7 +530,7 @@ SingletonPart.register :CopierDown do
       y < 25-1 and
       $theGrid[y-1][x].crate? and
       $theGrid[y+1][x].empty? and
-      not dirty?([x, y+1])
+      not is_dirty?([x, y+1])
     then
       $dirty << [x, y+1]
       $theGrid[y+1][x] = $theGrid[y-1][x]
@@ -547,7 +547,7 @@ SingletonPart.register :CopierUp do
       y < 25-1 and
       $theGrid[y+1][x].crate? and
       $theGrid[y-1][x].empty? and
-      not dirty?([x, y-1])
+      not is_dirty?([x, y-1])
     then
       $dirty << [x, y-1]
       $theGrid[y-1][x] = $theGrid[y+1][x]
@@ -568,9 +568,9 @@ SingletonPart.register :BulldozerLeft do
     # suck itself upwards
     elsif y > 1 and
          $theGrid[y-1][x] == BulldozerPipe.instance and
-         not dirty?([x, y-1]) and
+         not is_dirty?([x, y-1]) and
          $theGrid[y-2][x].empty? and
-         not dirty?([x, y-2])
+         not is_dirty?([x, y-2])
     then
       $dirty << [x, y-2]
       $theGrid[y-2][x] = self
@@ -579,11 +579,11 @@ SingletonPart.register :BulldozerLeft do
     elsif x > 0
       should_push = true
 
-      if $theGrid[y][x-1].crate? and not dirty?([x-1, y])
+      if $theGrid[y][x-1].crate? and not is_dirty?([x-1, y])
         if x <=1 or not pushBlocksLeft(x-1, y)
           should_push = false
         end
-      elsif y < 0 and $theGrid[y][x-1] == RampLeft.instance and not dirty?([x-1, y])
+      elsif y < 0 and $theGrid[y][x-1] == RampLeft.instance and not is_dirty?([x-1, y])
         if $theGrid[y-1][x-1].crate? and not pushBlocksLeft(x-1, y-1)
           should_push = false
         else
@@ -592,7 +592,7 @@ SingletonPart.register :BulldozerLeft do
           $theGrid[y][x] = Empty.instance
         end
       else
-        if not ($theGrid[y][x-1].empty? and not dirty?([x-1, y]))
+        if not ($theGrid[y][x-1].empty? and not is_dirty?([x-1, y]))
           should_push = false
         end
       end
@@ -622,9 +622,9 @@ SingletonPart.register :BulldozerRight do
     # suck itself upwards
     elsif y > 1 and
          $theGrid[y-1][x] == BulldozerPipe.instance and
-         not dirty?([x, y-1]) and
+         not is_dirty?([x, y-1]) and
          $theGrid[y-2][x].empty? and
-         not dirty?([x, y-2])
+         not is_dirty?([x, y-2])
     then
       $dirty << [x, y-2]
       $theGrid[y-2][x] = self
@@ -633,11 +633,11 @@ SingletonPart.register :BulldozerRight do
     elsif x > 0
       should_push = true
 
-      if $theGrid[y][x+1].crate? and not dirty?([x+1, y])
+      if $theGrid[y][x+1].crate? and not is_dirty?([x+1, y])
         if x >=80-2 or not pushBlocksRight(x+1, y)
           should_push = false
         end
-      elsif y < 0 and $theGrid[y][x+1] == RampRight.instance and not dirty?([x+1, y])
+      elsif y < 0 and $theGrid[y][x+1] == RampRight.instance and not is_dirty?([x+1, y])
         if $theGrid[y-1][x+1].crate? and not pushBlocksRight(x+1, y-1)
           should_push = false
         else
@@ -646,7 +646,7 @@ SingletonPart.register :BulldozerRight do
           $theGrid[y][x] = Empty.instance
         end
       else
-        if not ($theGrid[y][x+1].empty? and not dirty?([x+1, y]))
+        if not ($theGrid[y][x+1].empty? and not is_dirty?([x+1, y]))
           should_push = false
         end
       end
@@ -671,7 +671,7 @@ SingletonPart.register :ConveyorLeft do
   char! '<'
 
   action! do |x,y|
-    if y > 0 and x > 0 and $theGrid[y-1][x].crate? and not dirty?([x, y-1])
+    if y > 0 and x > 0 and $theGrid[y-1][x].crate? and not is_dirty?([x, y-1])
       pushBlocksLeft(x, y-1)
     end
   end
@@ -681,8 +681,8 @@ SingletonPart.register :ConveyorRight do
   category! 5
   char! '>'
 
-  def action(x, y)
-    if y > 0 and x > 0 and $theGrid[y-1][x].crate? and not dirty?([x, y-1])
+  action! do |x,y|
+    if y > 0 and x > 0 and $theGrid[y-1][x].crate? and not is_dirty?([x, y-1])
       pushBlocksRight(x, y-1)
     end
   end
@@ -699,15 +699,15 @@ class AbstractArithmeticPart < SingletonPart
     return if x==0 or x == 80-1 or y == 25-1
 
     # ignore non-crates and dirty numerical crates
-    return if not $theGrid[y+1][x-1].crate? or dirty?([x-1, y+1])
-    return if not $theGrid[y+1][x].crate? or dirty?([x-1, y+1])
+    return if not $theGrid[y+1][x-1].crate? or is_dirty?([x-1, y+1])
+    return if not $theGrid[y+1][x].crate? or is_dirty?([x-1, y+1])
 
     # ignore random crates
     return if $theGrid[y+1][x-1] == RandomCrate.instance
     return if $theGrid[y+1][x] == RandomCrate.instance
 
     # needs space for the output
-    return if $theGrid[y+1][x+1] != Empty.instance or dirty?([x+1, y+1])
+    return if $theGrid[y+1][x+1] != Empty.instance or is_dirty?([x+1, y+1])
 
     # calculate result
     result = self.calculateResult(x, y)
