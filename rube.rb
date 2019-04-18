@@ -927,12 +927,11 @@ input_filename = ARGV.length == 1 ? ARGV[0] : 'grid.rube'
 $theGrid = CodeGrid.new(80, 25)
 $theGrid.load(input_filename)
 
-(1..120).each do | each |
+loop {
   run_one_control_cycle()
-end
+}
 
-print "\n"
-exit 1
+
 
 
 # Old MarioLang code for temprorary reference or something
