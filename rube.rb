@@ -804,7 +804,8 @@ def run_one_step()
   # activate each part in the proper order
   processing_list.each do | category |
     category.each do | entry |
-      entry[0].action(entry[1], entry[2])
+      cell, x, y = entry
+      cell.action(x, y)
     end
   end
 
