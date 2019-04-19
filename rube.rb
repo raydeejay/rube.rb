@@ -841,7 +841,10 @@ def run_one_control_cycle()
       end
     when 'i'
       if key = GetKey.getkey
-        exit 1 if key == 27
+        if key == 27
+          print "\n"
+          exit 1
+        end
         $tape.write(key)
       else
         $tape.write(0)
@@ -949,9 +952,13 @@ loop {
         print "#{vars[varp]} " if not visual
         $output << "#{vars[varp]} " if visual
       when ","
+        STDIN.echo = false
         vars[varp] = STDIN.getc.ord
+        STDIN.echo = true
       when ";"
+        STDIN.echo = false
         vars[varp] = STDIN.gets.to_i
+        STDIN.echo = true
       when ">"
         dirx = 1
       when "<"
