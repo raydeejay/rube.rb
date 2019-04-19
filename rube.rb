@@ -590,6 +590,22 @@ SingletonPart.register :CopierUp do
   end
 end
 
+SingletonPart.register :CopierChar do
+  category! 4
+  char! '~'
+
+  action! do |x,y|
+    if y > 0 and
+      y < $theGrid.height-1 and
+      $theGrid[y+1][x].empty? and
+      not is_dirty?([x, y+1])
+    then
+      $dirty << [x, y+1]
+      $theGrid[y+1][x] = Crate.new.value!($theGrid[y-1][x].char.ord)
+    end
+  end
+end
+
 
 # Category 5 parts
 ##################
