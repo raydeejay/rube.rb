@@ -416,6 +416,64 @@ end
 SingletonPart.register :Door do
   category! 1
   char! 'D'
+
+  @data = 0
+
+  action! do |x,y|
+    if x > 0 and x < $theGrid.width-1
+      # key on the left
+      left = $theGrid[y][x-1]
+      right = $theGrid[y][x+1]
+      if (not left.empty?) and right.empty? and (not right.dirty?) and (@data&2 != 2)
+        $theGrid[y][x+1] = Wall.new.value!('=')
+        @data |= 1
+      end
+
+      if left.empty? and (not left.dirty?) and (@data&1 == 1)
+        $theGrid[y][x+1] = Empty.instance
+        @data &= ~1
+      end
+
+      # key on the right
+      left = $theGrid[y][x-1]
+      right = $theGrid[y][x+1]
+      if (not right.empty?) and left.empty? and (not left.dirty?) and (@data&1 != 1)
+        $theGrid[y][x-1] = Wall.new.value!('=')
+        @data |= 2
+      end
+
+      if right.empty? and (not right.dirty?) and (@data&2 == 2)
+        $theGrid[y][x-1] = Empty.instance
+        @data &= ~2
+      end
+
+      # key on the top
+      up = $theGrid[y-1][x]
+      down = $theGrid[y+1][x]
+      if (not up.empty?) and down.empty? and (not down.dirty?) and (@data&8 != 8)
+        $theGrid[y+1][x] = Wall.new.value!('=')
+        @data |= 4
+      end
+
+      if up.empty? and (not up.dirty?) and (@data&4 == 4)
+        $theGrid[y+1][x] = Empty.instance
+        @data &= ~4
+      end
+
+      # key on the bottom
+      up = $theGrid[y-1][x]
+      down = $theGrid[y+1][x]
+      if (not down.empty?) and up.empty? and (not up.dirty?) and (@data&4 != 4)
+        $theGrid[y-1][x] = Wall.new.value!('=')
+        @data |= 8
+      end
+
+      if down.empty? and (not down.dirty?) and (@data&8 == 8)
+        $theGrid[y-1][x] = Empty.instance
+        @data &= ~8
+      end
+    end
+  end
 end
 
 SingletonPart.register :RandomCrate do
