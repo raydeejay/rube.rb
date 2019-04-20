@@ -25,7 +25,7 @@ module Parts
       klass = Class.new(self) do
         define_method(:initialize) do
           @empty = false
-          @crate = false
+          @crate = nil
           @transparent = false
           @char = nil
           @category = nil
@@ -55,7 +55,7 @@ module Parts
     end
 
     def crate!
-      @crate = true
+      @crate = self
     end
 
     def transparent!
