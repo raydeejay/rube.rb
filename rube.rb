@@ -66,7 +66,8 @@ visual = (ARGV.length == 1)
 $delay = 0.01
 prefix = 0
 should_collect = false
-$controlProgram = '+[dsti[O[-]]+]'
+$controlProgram = '+[dsti[o[-]]+]'  # numerical input
+#$controlProgram = '+[dsti[O[-]]+]'  # alphanumeric input
 $input_char_on_tape = 0
 
 
@@ -194,6 +195,8 @@ class CodeGrid
     else
       # it's a dynamic part holding data, can't be a singleton
       case char
+      when 'D'
+        entity = Door.new
       when 'b'
         entity = Crate.new.value!(0)
       when ('0'..'9')
