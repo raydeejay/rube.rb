@@ -270,12 +270,7 @@ class CodeGrid
         printCode(part.char, x, y)
       end
     end
-
-    moveto(0, self.height + 1)
-    print "Output:\n"
-    moveto(0, self.height + 2)
-    u = $output.split("\n").last($outputCount).join("\n")
-    print "\x1B[0J#{u}"
+    self.render_bottom
   end
 
   def render
@@ -283,12 +278,7 @@ class CodeGrid
       self[pos[1]][pos[0]].render
     end
     $blocks_to_redraw = []
-
-    moveto(0, self.height + 1)
-    print "Output:\n"
-    moveto(0, self.height + 2)
-    u = $output.split("\n").last($outputCount).join("\n")
-    print "\x1B[0J#{u}"
+    self.render_bottom
   end
 end
 
