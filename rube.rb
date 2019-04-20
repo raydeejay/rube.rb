@@ -697,6 +697,34 @@ end
 
 # Category 4 parts
 ##################
+SingletonPart.register :SwinchDown do
+  category! 4
+  char! 'W'
+
+  action! do |x,y|
+    cell = $theGrid[y][x]
+    if cell&.up&.crate?&.clean? and cell&.down&.empty?
+      cell.down.become(cell.up)
+      cell.up.clear!
+      $theGrid[y][x] = SwinchUp.instance
+    end
+  end
+end
+
+SingletonPart.register :SwinchUp do
+  category! 4
+  char! 'M'
+
+  action! do |x,y|
+    cell = $theGrid[y][x]
+    if cell&.down&.crate?&.clean? and cell&.up&.empty?
+      cell.up.become(cell.down)
+      cell.down.clear!
+      $theGrid[y][x] = SwinchDown.instance
+    end
+  end
+end
+
 SingletonPart.register :CopierDown do
   category! 4
   char! '!'
