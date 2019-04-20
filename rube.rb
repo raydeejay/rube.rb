@@ -246,6 +246,19 @@ class CodeGrid
     @height = @codeGrid.length
   end
 
+  def render_bottom
+    moveto(0, self.height + 1)
+    print "Control:\n"
+    moveto(0, self.height + 2)
+    print $controlProgram
+
+    moveto(0, self.height + 5)
+    print "Output:\n"
+    moveto(0, self.height + 6)
+    u = $output.split("\n").last($outputCount).join("\n")
+    print "\x1B[0J#{u}"
+  end
+
   def renderFull
     clear()
 
