@@ -1055,14 +1055,18 @@ def run_one_step()
 
   # clear the input char
   $input_char = nil
-
 end
 
 def run_one_control_cycle()
   # hardcoded +[dsti[o[-]]+] program
   control = $controlProgram
 
-  control.chars.each do | command |
+  control.chars.each.with_index do | command, x |
+    # show the head, this probably belongs somewhere else
+    moveto(0, $theGrid.height + 3)
+    print " " * (x)
+    print "^   "
+
     case command
     when '['
     when ']'
