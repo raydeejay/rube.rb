@@ -315,25 +315,102 @@ class CodeGridPosition
     @y = y
   end
 
+  # interacting with the pointed at cell
   def ==(part)
     $theGrid.at(@x, @y) == part
+  end
+
+  def become(another_object)
+    $theGrid[@y][@x] = another_object
+  end
+
+  def move_to(x, y)
+    $theGrid[y][x] = self
+    $theGrid[@y][@x] = Empty.instance
+    # should wwe return THIS position or the new position?
+    # return the new position for now
+    $theGrid[y][x]
   end
 
   def part
     $theGrid.at(@x, @y)
   end
 
+  def clear!
+    $theGrid[@y][@x] = Empty.instance
+    self
+  end
+
+  def render
+    printCode($theGrid.at(@x, @y).char, @x, @y)
+    self
+  end
+
+  # wrapping this method so it returns a position, so other methods
+  # can be &. chained to it
+  def crate?
+    $theGrid.at(@x, @y).crate? ? self : nil
+  end
+
+  # moving through the grid
+  def up
+    @y.positive? ? $theGrid[@y-1][@x] : nil
+  end
+
+  def down
+    @y < $theGrid.height-1 ? $theGrid[@y+1][@x] : nil
+  end
+
+  def left
+    @x.positive? ? $theGrid[@y][@x-1] : nil
+  end
+
+  def right
+    @x < $theGrid.width-1 ? $theGrid[@y][@x+1] : nil
+  end
+
+  # testing position
+  # these may not be necessary since, whenever a cell wants to know if
+  # it's not at an edge, it's because it wants to do something with
+  # that position, and the movement methods already test for edgeness
+  def notTopEdge?
+    @y.positive? ? self : nil
+  end
+
+  def notBottomEdge?
+    @y < $theGrid.height-1 ? self : nil
+  end
+
+  def notRightEdge?
+    @x < $theGrid.width-1 ? self : nil
+  end
+
+  def notLeftEdge?
+    @x.positive? ? self : nil
+  end
+
+  # testing properties
   def dirty?
-    is_dirty?([@x, @y])
+    is_dirty?([@x, @y]) ? self : nil
+  end
+
+  def dirty!
+    $dirty << [column_index, @row_index]
+    self
+  end
+
+  def clean?
+    (not is_dirty?([@x, @y])) ? self : nil
+  end
+
+  def clean!
+    $dirty.remove([@x, @y])
+    self
   end
 
   # proxy any unknown method to the referenced Part
   def method_missing(name, *args, &block)
     $theGrid.at(@x, @y).send(name, *args, &block)
-  end
-
-  def render
-    printCode($theGrid.at(@x, @y).char, @x, @y)
   end
 end
 
