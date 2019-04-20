@@ -489,14 +489,15 @@ SingletonPart.register :Furnace do
   transparent!
 
   action! do |x,y|
-    $theGrid[y][x+1] = Empty.instance if x < $theGrid.width-1 and $theGrid[y][x+1].crate?
-    $theGrid[y][x-1] = Empty.instance if x > 0 and $theGrid[y][x-1].crate?
-    $theGrid[y+1][x] = Empty.instance if y < $theGrid.height-1 and $theGrid[y+1][x].crate?
-    $theGrid[y-1][x] = Empty.instance if y > 0 and $theGrid[y-1][x].crate?
+    cell = $theGrid[y][x]
+    cell.left.clear! if cell&.left&.crate?
+    cell.right.clear! if cell&.right&.crate?
+    cell.up.clear! if cell&.up&.crate?
+    cell.down.clear! if cell&.down&.crate?
   end
 end
 
-SingletonPart.register :Door do
+Part.define :Door do
   category! 1
   char! 'D'
 
