@@ -441,10 +441,15 @@ SingletonPart.register :Scanner do
   char! '*'
   category! 0
 
+  # action! do | x, y |
+  #   if y < $theGrid.height-1 and $theGrid[y+1][x].crate? and not is_dirty?([x, y+1])
+  #     $output << " " << $theGrid[y+1][x].number.to_s
+  #   end
+  # end
+
   action! do | x, y |
-    if y < $theGrid.height-1 and $theGrid[y+1][x].crate? and not is_dirty?([x, y+1])
-      $output << " " << $theGrid[y+1][x].number.to_s
-    end
+    cell = $theGrid[y][x]
+    $output << " " << cell.down.number.to_s if cell&.down&.crate?&.clean?
   end
 end
 
@@ -452,10 +457,15 @@ SingletonPart.register :LetterScanner do
   char! '$'
   category! 0
 
+  # action! do | x, y |
+  #   if y < $theGrid.height-1 and $theGrid[y+1][x].crate? and not is_dirty?([x, y+1])
+  #     $output << $theGrid[y+1][x].number.chr
+  #   end
+  # end
+
   action! do | x, y |
-    if y < $theGrid.height-1 and $theGrid[y+1][x].crate? and not is_dirty?([x, y+1])
-      $output << $theGrid[y+1][x].number.chr
-    end
+    cell = $theGrid[y][x]
+    $output << cell.down.number.chr if cell&.down&.crate?.clean?
   end
 end
 
@@ -567,12 +577,11 @@ SingletonPart.register :RandomCrate do
 
   action! do |x,y|
     # change into a numerical crate if not directly above or below a copier
-    if not ((y < $theGrid.height-1 and $theGrid[y+1][x] == CopierDown.instance) or
-            (y > 0 and $theGrid[y-1][x] == CopierUp.instance))
-    then
-      $dirty << [x, y]
-      $theGrid[y][x] = Crate.new.value!(rand(0..9))
-    end
+    # if not ((y < $theGrid.height-1 and $theGrid[y+1][x] == CopierDown.instance) or
+    #         (y > 0 and $theGrid[y-1][x] == CopierUp.instance))
+
+    cell = $theGrid[y][x]
+    cell.become(Crate.new.value!(rand(0..9))) if cell&.down != CopierDown.instance and cell&.up != CopierUp.instance
 
     fall(x, y) if canFall?(x, y)
   end
