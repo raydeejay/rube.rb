@@ -69,7 +69,7 @@ should_collect = false
 $controlProgram = '+[dsti[o[-]]+]'  # numerical input
 #$controlProgram = '+[dsti[O[-]]+]'  # alphanumeric input
 $input_char_on_tape = 0
-
+$state_value = 0
 
 # Independent-ish code
 ##############################
@@ -1129,6 +1129,7 @@ def run_one_control_cycle()
     when 't'
       run_one_step()
     when 'a'
+      $state_value = $tape.read % 10
     end
   end
 
