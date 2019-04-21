@@ -483,6 +483,23 @@ end
 SingletonPart.register :Splitter do
   char! 's'
   category! 0
+
+  action! do |x,y|
+    cell = $theGrid[y][x]
+    if cell&.down&.crate?
+      # check for space
+      clear_path = true
+      num_string = cell.down.number.to_s
+      (1..num_string.length).each { |each| obstructed &= !!$theGrid[y][x+each].empty? }
+
+      if clear_path
+        # spawn crates
+        num_string.chars.each.with_index {|c, i| $theGrid[y][x+1+i] = Crate.new.value!(c.to_i) }
+        # delete self
+        cell.down.clear!
+      end
+    end
+  end
 end
 
 SingletonPart.register :StateControl do
