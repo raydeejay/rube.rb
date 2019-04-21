@@ -488,6 +488,21 @@ end
 SingletonPart.register :StateControl do
   char! 'a'
   category! 0
+
+  action! do |x,y|
+    cell = $theGrid[y][x]
+    if cell.notLeftEdge? and cell&.up&.crate?&.char&.between?('0', '9')
+      #active
+      cell.left.become(Wall.new.value!('=')) if cell&.left&.empty?
+      cell.right.become(Wall.new.value!('=')) if cell&.right&.empty?
+      cell.down.become(Wall.new.value!('|')) if cell&.down&.empty?
+    else
+      #inactive
+      cell.left.clear! if cell&.left&.char == '='
+      cell.right.clear! if cell&.right&.char == '='
+      cell.down.clear! if cell&.down&.char == '|'
+    end
+  end
 end
 
 
